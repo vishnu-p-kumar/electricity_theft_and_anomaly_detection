@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consumer Segmentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Source+Serif+4:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body data-theme="dark">
+    <section class="dashboard-section">
+      <header class="section-header">
+        <div>
+          <p class="eyebrow mb-0">Behavioral Clustering</p>
+          <h2>Consumer Segmentation</h2>
+          <p>Separate residential, commercial, industrial, and suspicious clusters from live usage behavior.</p>
+        </div>
+        <div class="section-header-actions">
+          <span class="live-pill"><i class="bi bi-diagram-3"></i> KMeans + DBSCAN segmentation</span>
+        </div>
+      </header>
+
+      <div class="kpi-grid">
+        <article class="kpi-card glass-card">
+          <span class="kpi-label">Clustered Meters</span>
+          <strong class="kpi-value" id="segmentMeterCount">0</strong>
+          <div class="kpi-meta">Meters included in the current clustering view</div>
+        </article>
+        <article class="kpi-card glass-card">
+          <span class="kpi-label">Suspicious Cluster</span>
+          <strong class="kpi-value" id="segmentSuspiciousCount">0</strong>
+          <div class="kpi-meta">Meters classified into suspicious usage patterns</div>
+        </article>
+        <article class="kpi-card glass-card">
+          <span class="kpi-label">Dominant Segment</span>
+          <strong class="kpi-value" id="segmentDominant">-</strong>
+          <div class="kpi-meta" id="segmentDominantMeta">Waiting for segmentation data</div>
+        </article>
+        <article class="kpi-card glass-card">
+          <span class="kpi-label">Highest Avg Consumption</span>
+          <strong class="kpi-value" id="segmentHighestConsumption">0.00 kWh</strong>
+          <div class="kpi-meta">Top cluster average demand</div>
+        </article>
+      </div>
+
+      <div class="section-grid two-up">
+        <article class="hero-card glass-card">
+          <h3>Consumer Cluster Scatter</h3>
+          <p>Average consumption versus night usage with power-factor loss encoded in marker size.</p>
+          <div class="plot-host tall" id="segmentScatterPlot"></div>
+        </article>
+        <article class="chart-card glass-card">
+          <h3>Segment Share</h3>
+          <p>Share of meters across the current clustering output.</p>
+          <div class="plot-host" id="segmentSummaryPlot"></div>
+        </article>
+      </div>
+
+      <div class="section-grid two-up mt-3">
+        <article class="chart-card glass-card">
+          <h3>Average Demand by Segment</h3>
+          <p>Mean consumption for each segment category.</p>
+          <div class="chart-host"><canvas id="segmentDemandChart"></canvas></div>
+        </article>
+        <article class="table-card glass-card">
+          <h3>Suspicious Cluster Members</h3>
+          <p>Highest-priority suspicious meters from the segmentation engine.</p>
+          <table class="section-table">
+            <thead>
+              <tr>
+                <th>Meter</th>
+                <th>Area</th>
+                <th>Segment</th>
+                <th>Avg Consumption</th>
+                <th>Night Usage</th>
+                <th>Theft Probability</th>
+              </tr>
+            </thead>
+            <tbody id="segmentTableBody"></tbody>
+          </table>
+        </article>
+      </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="../components/core.js"></script>
+    <script src="../components/charts.js"></script>
+    <script src="../components/segmentation.js"></script>
+    <script>
+      (function () {
+        function metric(id, value) {
+          const element = document.getElementById(id);
+          if (element) {
+            element.textContent = value;
+          }
+        }
+
+        function renderTable(records) {
+          const suspicious = records
+            .filter((record) => record.segment === "Suspicious cluster")
+            .sort((left, right) => Number(right.theft_probability || 0) - Number(left.theft_probability || 0))
+            .slice(0, 20);
+          const body = document.getElementById("segmentTableBody");
+          if (!suspicious.length) {
+            body.innerHTML = '<tr><td colspan="6"><div class="empty-state">No suspicious clusters currently identified.</div></td></tr>';
+            return;
+          }
+          body.innerHTML = suspicious
+            .map(
+              (record) => `
+                <tr>
+                  <td>${record.meter_id}</td>
+                  <td>${record.area || "-"}</td>
+                  <td>${record.segment}</td>
+                  <td>${SmartGridDashboard.formatDecimal(record.avg_consumption_kwh || 0, 2)} kWh</td>
+                  <td>${SmartGridDashboard.formatDecimal(record.night_usage_ratio || 0, 2)}</td>
+                  <td>${SmartGridDashboard.formatDecimal(record.theft_probability || 0, 2)}</td>
+                </tr>
+              `
+            )
+            .join("");
+        }
+
+        function render(payload) {
+          const summary = payload.summary || [];
+          const records = payload.records || [];
+          const suspiciousCount = records.filter((record) => record.segment === "Suspicious cluster").length;
+          const dominant = summary[0];
+          const highestDemand = summary.length ? Math.max(...summary.map((item) => Number(item.avg_consumption_kwh || 0))) : 0;
+
+          metric("segmentMeterCount", SmartGridDashboard.formatNumber(records.length));
+          metric("segmentSuspiciousCount", SmartGridDashboard.formatNumber(suspiciousCount));
+          metric("segmentDominant", dominant ? dominant.segment : "-");
+          metric(
+            "segmentDominantMeta",
+            dominant ? `${SmartGridDashboard.formatNumber(dominant.meter_count || 0)} meters in leading segment` : "Waiting for segmentation data"
+          );
+          metric("segmentHighestConsumption", SmartGridDashboard.formatDecimal(highestDemand, 2) + " kWh");
+
+          SmartGridSegmentation.renderSegmentationScatter("segmentScatterPlot", records);
+          SmartGridSegmentation.renderSegmentationSummary("segmentSummaryPlot", summary);
+
+          SmartGridCharts.renderChart(
+            "segmentDemandChart",
+            "bar",
+            summary.map((row) => row.segment),
+            [
+              {
+                label: "Average consumption (kWh)",
+                data: summary.map((row) => Number(row.avg_consumption_kwh || 0)),
+                backgroundColor: ["#14b8a6", "#38bdf8", "#f97316", "#ef4444"],
+                borderRadius: 12,
+              },
+            ]
+          );
+
+          renderTable(records);
+        }
+
+        async function refresh() {
+          const segments = await SmartGridDashboard.fetchJson("/consumer-segments");
+          render(segments);
+        }
+
+        SmartGridDashboard.setupSection({
+          name: "consumer_segmentation",
+          refresh,
+          interval: 3000,
+          socket(payload) {
+            if (payload && payload.segments) {
+              render(payload.segments);
+            }
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

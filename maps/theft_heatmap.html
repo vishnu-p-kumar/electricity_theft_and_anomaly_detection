@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_8fe713fe77ffbf76ab37a015ba43740e {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_8fe713fe77ffbf76ab37a015ba43740e" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_8fe713fe77ffbf76ab37a015ba43740e = L.map(
+                "map_8fe713fe77ffbf76ab37a015ba43740e",
+                {
+                    center: [12.9716, 77.5946],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 11,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_82c6bc3392629c73b73bf33a5b931bf3 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_82c6bc3392629c73b73bf33a5b931bf3.addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+            var heat_map_8eec4816fc62b53792d24a276367d280 = L.heatLayer(
+                [[12.938363058750925, 77.7597628300525, 0.9632903425476484], [12.938363058750925, 77.7597628300525, 0.9633362904023919], [12.927483458763536, 77.66217586354855, 0.9495985870477531], [13.077474745416412, 77.5959818334946, 0.972532256108702], [12.927483458763536, 77.66217586354855, 0.9339634969250403], [12.927483458763536, 77.66217586354855, 0.9504243105174351], [12.927483458763536, 77.66217586354855, 0.9391763435512759], [12.927483458763536, 77.66217586354855, 0.9500049154887309]],
+                {
+  "minOpacity": 0.5,
+  "maxZoom": 13,
+  "radius": 18,
+  "blur": 14,
+}
+            );
+        
+    
+            heat_map_8eec4816fc62b53792d24a276367d280.addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+            var circle_marker_675aab9f96c52460e0f11ca53b6e36ec = L.circleMarker(
+                [13.077474745416412, 77.5959818334946],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_986a8e7bf54a17853ebd578afa0ebdcc = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2201616b86e5f5eb8fba04dd29e7de57 = $(`<div id="html_2201616b86e5f5eb8fba04dd29e7de57" style="width: 100.0%; height: 100.0%;">M0056 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_986a8e7bf54a17853ebd578afa0ebdcc.setContent(html_2201616b86e5f5eb8fba04dd29e7de57);
+            
+        
+
+        circle_marker_675aab9f96c52460e0f11ca53b6e36ec.bindPopup(popup_986a8e7bf54a17853ebd578afa0ebdcc)
+        ;
+
+        
+    
+    
+            var circle_marker_5e9c4776ee64e5a85073a4810ed6687a = L.circleMarker(
+                [12.938363058750925, 77.7597628300525],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_dd239d88abf7b4b633aa6569c0f41362 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_e6f6ca6364ed936efebc7bc6e361e6fe = $(`<div id="html_e6f6ca6364ed936efebc7bc6e361e6fe" style="width: 100.0%; height: 100.0%;">M0038 | Whitefield | Electricity Theft</div>`)[0];
+                popup_dd239d88abf7b4b633aa6569c0f41362.setContent(html_e6f6ca6364ed936efebc7bc6e361e6fe);
+            
+        
+
+        circle_marker_5e9c4776ee64e5a85073a4810ed6687a.bindPopup(popup_dd239d88abf7b4b633aa6569c0f41362)
+        ;
+
+        
+    
+    
+            var circle_marker_f314fc5e68e0678afa5bbb5c7bc1c729 = L.circleMarker(
+                [12.938363058750925, 77.7597628300525],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_d5222853861bcf62aa6dce9c6262ef60 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_05724501b8223dfc8392ad608663570c = $(`<div id="html_05724501b8223dfc8392ad608663570c" style="width: 100.0%; height: 100.0%;">M0038 | Whitefield | Electricity Theft</div>`)[0];
+                popup_d5222853861bcf62aa6dce9c6262ef60.setContent(html_05724501b8223dfc8392ad608663570c);
+            
+        
+
+        circle_marker_f314fc5e68e0678afa5bbb5c7bc1c729.bindPopup(popup_d5222853861bcf62aa6dce9c6262ef60)
+        ;
+
+        
+    
+    
+            var circle_marker_eaa7882ec72b86bcc8bff14d698858ad = L.circleMarker(
+                [12.927483458763536, 77.66217586354855],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_cd0b742cee65a4d41b0d70c2e0b81eb2 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_560db50b1c4c473a71ec4174415f09a3 = $(`<div id="html_560db50b1c4c473a71ec4174415f09a3" style="width: 100.0%; height: 100.0%;">M0059 | Bellandur | Electricity Theft</div>`)[0];
+                popup_cd0b742cee65a4d41b0d70c2e0b81eb2.setContent(html_560db50b1c4c473a71ec4174415f09a3);
+            
+        
+
+        circle_marker_eaa7882ec72b86bcc8bff14d698858ad.bindPopup(popup_cd0b742cee65a4d41b0d70c2e0b81eb2)
+        ;
+
+        
+    
+    
+            var circle_marker_79025dd53a0172a0db31df2fa31b0d9f = L.circleMarker(
+                [12.927483458763536, 77.66217586354855],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_be853940e626ad551e30ed656e4037c2 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_583a2a3900c87fb605ec73cb8bb0e532 = $(`<div id="html_583a2a3900c87fb605ec73cb8bb0e532" style="width: 100.0%; height: 100.0%;">M0059 | Bellandur | Electricity Theft</div>`)[0];
+                popup_be853940e626ad551e30ed656e4037c2.setContent(html_583a2a3900c87fb605ec73cb8bb0e532);
+            
+        
+
+        circle_marker_79025dd53a0172a0db31df2fa31b0d9f.bindPopup(popup_be853940e626ad551e30ed656e4037c2)
+        ;
+
+        
+    
+    
+            var circle_marker_2fd12d597a2ca510ddb5c3b3f114b042 = L.circleMarker(
+                [12.927483458763536, 77.66217586354855],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_02e3469fb7305f5b56f3c9a95662ea1a = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_6eac5c1ad2c78aa4d73cb1f9f5deb836 = $(`<div id="html_6eac5c1ad2c78aa4d73cb1f9f5deb836" style="width: 100.0%; height: 100.0%;">M0059 | Bellandur | Electricity Theft</div>`)[0];
+                popup_02e3469fb7305f5b56f3c9a95662ea1a.setContent(html_6eac5c1ad2c78aa4d73cb1f9f5deb836);
+            
+        
+
+        circle_marker_2fd12d597a2ca510ddb5c3b3f114b042.bindPopup(popup_02e3469fb7305f5b56f3c9a95662ea1a)
+        ;
+
+        
+    
+    
+            var circle_marker_c1db6b814182c60fa39bac719f9da116 = L.circleMarker(
+                [12.927483458763536, 77.66217586354855],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_38ce9d77caaa043e271aa2fd56855dbd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_918d6b3eeb7dae3a11097994fd0f84b9 = $(`<div id="html_918d6b3eeb7dae3a11097994fd0f84b9" style="width: 100.0%; height: 100.0%;">M0059 | Bellandur | Electricity Theft</div>`)[0];
+                popup_38ce9d77caaa043e271aa2fd56855dbd.setContent(html_918d6b3eeb7dae3a11097994fd0f84b9);
+            
+        
+
+        circle_marker_c1db6b814182c60fa39bac719f9da116.bindPopup(popup_38ce9d77caaa043e271aa2fd56855dbd)
+        ;
+
+        
+    
+    
+            var circle_marker_1751508d89eab5ee48fb0aaadb79379b = L.circleMarker(
+                [12.927483458763536, 77.66217586354855],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_8fe713fe77ffbf76ab37a015ba43740e);
+        
+    
+        var popup_3843cbb0ae197a98d7b348f14213a07d = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_dd0dbda64fb3663aa32888a0ad81beae = $(`<div id="html_dd0dbda64fb3663aa32888a0ad81beae" style="width: 100.0%; height: 100.0%;">M0059 | Bellandur | Electricity Theft</div>`)[0];
+                popup_3843cbb0ae197a98d7b348f14213a07d.setContent(html_dd0dbda64fb3663aa32888a0ad81beae);
+            
+        
+
+        circle_marker_1751508d89eab5ee48fb0aaadb79379b.bindPopup(popup_3843cbb0ae197a98d7b348f14213a07d)
+        ;
+
+        
+    
+</script>
+</html>
