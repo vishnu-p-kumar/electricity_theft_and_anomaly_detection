@@ -139,14 +139,17 @@ def forecast_horizons(
         return {"next_hour": 0.0, "next_day": 0.0, "next_week": 0.0, "series": []}
 
     if metadata.get("model_type") == "lstm" and tf is not None and model_path.exists():
-        model = tf.keras.models.load_model(model_path, compile=False)
-        window = np.asarray(metadata["last_window"], dtype=float).reshape(1, metadata["lookback"], 1)
-        predictions_scaled: list[float] = []
-        for _ in range(horizon):
-            next_value = float(model.predict(window, verbose=0)[0][0])
-            predictions_scaled.append(next_value)
-            window = np.concatenate([window[:, 1:, :], np.array(next_value).reshape(1, 1, 1)], axis=1)
-        predictions = _inverse_scale(np.asarray(predictions_scaled), metadata)
+        try:
+            model = tf.keras.models.load_model(model_path, compile=False)
+            window = np.asarray(metadata["last_window"], dtype=float).reshape(1, metadata["lookback"], 1)
+            predictions_scaled: list[float] = []
+            for _ in range(horizon):
+                next_value = float(model.predict(window, verbose=0)[0][0])
+                predictions_scaled.append(next_value)
+                window = np.concatenate([window[:, 1:, :], np.array(next_value).reshape(1, 1, 1)], axis=1)
+            predictions = _inverse_scale(np.asarray(predictions_scaled), metadata)
+        except Exception:
+            predictions = _baseline_forecast(metadata.get("history_values", []), horizon=horizon)
     else:
         predictions = _baseline_forecast(metadata.get("history_values", []), horizon=horizon)
 
@@ -161,4 +164,3 @@ def forecast_horizons(
         "series": chart_series,
         "model_type": metadata.get("model_type", "baseline"),
     }
-

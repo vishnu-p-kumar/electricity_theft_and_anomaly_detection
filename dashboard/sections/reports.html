@@ -28,7 +28,7 @@
         <div>
           <p class="eyebrow mb-0">Reporting Layer</p>
           <h2>Reports & Insights</h2>
-          <p>Operational summaries, downloadable artifacts, and model-backed grid insights for daily analysis.</p>
+          <p>Operational summaries, downloadable artifacts, and model-backed insights for daily analysis.</p>
         </div>
         <div class="section-header-actions">
           <a class="report-link" href="../../reports/daily_energy_report.pdf" target="_blank" rel="noreferrer">
@@ -42,12 +42,12 @@
         <article class="kpi-card glass-card">
           <span class="kpi-label">Theft Incidents</span>
           <strong class="kpi-value" id="reportTheftCount">0</strong>
-          <div class="kpi-meta">Latest theft incidents in the report window</div>
+          <div class="kpi-meta">Current tick theft incidents</div>
         </article>
         <article class="kpi-card glass-card">
-          <span class="kpi-label">Overloaded Feeders</span>
-          <strong class="kpi-value" id="reportOverloadedFeeders">0</strong>
-          <div class="kpi-meta">Feeders exceeding safe load ratio</div>
+          <span class="kpi-label">Efficiency Watch</span>
+          <strong class="kpi-value" id="reportEfficiencyWatch">0</strong>
+          <div class="kpi-meta">Low-efficiency meters in the current window</div>
         </article>
         <article class="kpi-card glass-card">
           <span class="kpi-label">Drift Watch</span>
@@ -117,7 +117,7 @@
           }
         }
 
-        function renderInsights(overview, forecast, grid, drift, theft) {
+        function renderInsights(overview, forecast, drift, theft, efficiency) {
           const topRegion = (overview.region_consumption || [])[0];
           const insights = [
             {
@@ -132,8 +132,11 @@
               )} next day`,
             },
             {
-              label: "Grid load",
-              value: `${grid.summary?.overloaded_feeders || 0} overloaded feeders | ${SmartGridDashboard.formatDecimal(grid.summary?.estimated_line_losses_kw || 0, 2)} kW losses`,
+              label: "Efficiency watch",
+              value: `${efficiency.summary?.low_efficiency || 0} low-efficiency meters | ${SmartGridDashboard.formatDecimal(
+                efficiency.summary?.estimated_losses_kwh || 0,
+                2
+              )} kWh losses`,
             },
             {
               label: "Drift monitoring",
@@ -158,9 +161,9 @@
           );
         }
 
-        function render(overview, forecast, grid, drift, theft) {
+        function render(overview, forecast, drift, theft, efficiency) {
           metric("reportTheftCount", SmartGridDashboard.formatNumber((theft.records || []).length));
-          metric("reportOverloadedFeeders", SmartGridDashboard.formatNumber(grid.summary?.overloaded_feeders || 0));
+          metric("reportEfficiencyWatch", SmartGridDashboard.formatNumber(efficiency.summary?.low_efficiency || 0));
           metric("reportDriftStatus", drift.drift_detected ? "Detected" : "Stable");
           metric("reportForecastDay", SmartGridDashboard.formatKwh(forecast.ensemble?.next_day || forecast.next_day || 0, 2));
 
@@ -196,18 +199,18 @@
             ]
           );
 
-          renderInsights(overview, forecast, grid, drift, theft);
+          renderInsights(overview, forecast, drift, theft, efficiency);
         }
 
         async function refresh() {
-          const [overview, forecast, grid, drift, theft] = await Promise.all([
+          const [overview, forecast, drift, theft, efficiency] = await Promise.all([
             SmartGridDashboard.fetchJson("/overview"),
             SmartGridDashboard.fetchJson("/forecast"),
-            SmartGridDashboard.fetchJson("/grid-status"),
             SmartGridDashboard.fetchJson("/drift-report"),
             SmartGridDashboard.fetchJson("/theft?limit=20"),
+            SmartGridDashboard.fetchJson("/efficiency?limit=20"),
           ]);
-          render(overview, forecast, grid, drift, theft);
+          render(overview, forecast, drift, theft, efficiency);
         }
 
         SmartGridDashboard.setupSection({
@@ -215,8 +218,8 @@
           refresh,
           interval: 3000,
           socket(payload) {
-            if (payload && payload.overview && payload.forecast && payload.grid && payload.drift && payload.theft) {
-              render(payload.overview, payload.forecast, payload.grid, payload.drift, payload.theft);
+            if (payload && payload.overview && payload.forecast && payload.drift && payload.theft && payload.efficiency) {
+              render(payload.overview, payload.forecast, payload.drift, payload.theft, payload.efficiency);
             }
           },
         });

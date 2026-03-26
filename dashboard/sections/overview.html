@@ -62,11 +62,6 @@
           <div class="kpi-meta">Meters with low operational efficiency</div>
         </article>
         <article class="kpi-card glass-card">
-          <span class="kpi-label">Grid Health</span>
-          <strong class="kpi-value" id="overviewGridHealth">Stable</strong>
-          <div class="kpi-meta" id="overviewGridMeta">No feeder stress detected</div>
-        </article>
-        <article class="kpi-card glass-card">
           <span class="kpi-label">Current Electricity Demand</span>
           <strong class="kpi-value" id="overviewCurrentDemand">0.00 kWh</strong>
           <div class="kpi-meta">Latest aggregated demand snapshot</div>
@@ -81,7 +76,7 @@
         </article>
         <article class="list-card glass-card">
           <h3>Operator Insights</h3>
-          <p>Auto-generated signals derived from risk, feeder stability, and forecast pressure.</p>
+          <p>Auto-generated signals derived from risk, efficiency, drift watch, and forecast pressure.</p>
           <div class="insight-list" id="overviewInsights"></div>
         </article>
       </div>
@@ -118,7 +113,6 @@
           const topRegion = (overview.region_consumption || [])[0];
           const topRisk = (risk.distribution || [])[0];
           const forecast = overview.forecast || {};
-          const grid = overview.grid_summary || {};
           const insightRows = [
             {
               label: "Peak load area",
@@ -131,10 +125,6 @@
             {
               label: "Forecast next hour",
               value: SmartGridDashboard.formatKwh((forecast.ensemble || forecast).next_hour || forecast.next_hour || 0, 2),
-            },
-            {
-              label: "Grid stress",
-              value: `${grid.overloaded_feeders || 0} overloaded feeders | voltage stability ${SmartGridDashboard.formatDecimal(grid.average_voltage_stability || 1, 3)}`,
             },
             {
               label: "Efficiency pressure",
@@ -169,7 +159,6 @@
 
         function render(overview, risk, efficiency) {
           const summary = overview.summary || {};
-          const grid = overview.grid_summary || {};
           const live = overview.live_consumption || [];
           const region = overview.region_consumption || [];
           const distribution = risk.distribution || overview.risk_distribution || [];
@@ -181,13 +170,6 @@
           metric("overviewAnomalies", SmartGridDashboard.formatNumber(summary.anomalies || 0));
           metric("overviewWastageAlerts", SmartGridDashboard.formatNumber(summary.wastage || 0));
           metric("overviewCurrentDemand", SmartGridDashboard.formatKwh(latestLoad, 2));
-
-          const healthState = grid.overloaded_feeders > 0 ? "Stressed" : overview.drift_detected ? "Watch" : "Stable";
-          metric("overviewGridHealth", healthState);
-          metric(
-            "overviewGridMeta",
-            `${grid.overloaded_feeders || 0} overloaded feeders | ${SmartGridDashboard.formatDecimal(grid.estimated_line_losses_kw || 0, 2)} kW estimated losses`
-          );
 
           SmartGridCharts.renderPlotly(
             "overviewDemandPlot",

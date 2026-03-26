@@ -39,7 +39,7 @@
         <article class="kpi-card glass-card">
           <span class="kpi-label">Anomaly Count</span>
           <strong class="kpi-value" id="anomalyCount">0</strong>
-          <div class="kpi-meta">Current anomalous meter events</div>
+          <div class="kpi-meta">Anomalous meters on the current tick</div>
         </article>
         <article class="kpi-card glass-card">
           <span class="kpi-label">Average Score</span>
@@ -129,16 +129,12 @@
 
         function render(payload) {
           const records = (payload.records || []).slice().sort((left, right) => Number(right.anomaly_score || 0) - Number(left.anomaly_score || 0));
-          const averageScore = records.length
-            ? records.reduce((sum, row) => sum + Number(row.anomaly_score || 0), 0) / records.length
-            : 0;
-          const highest = records.length ? Math.max(...records.map((row) => Number(row.anomaly_score || 0))) : 0;
-          const impactedAreas = new Set(records.map((row) => row.area).filter(Boolean)).size;
+          const summary = payload.summary || {};
 
-          metric("anomalyCount", SmartGridDashboard.formatNumber(payload.count || records.length));
-          metric("anomalyAverage", SmartGridDashboard.formatDecimal(averageScore, 3));
-          metric("anomalyHighest", SmartGridDashboard.formatDecimal(highest, 3));
-          metric("anomalyAreas", SmartGridDashboard.formatNumber(impactedAreas));
+          metric("anomalyCount", SmartGridDashboard.formatNumber(summary.count || payload.count || 0));
+          metric("anomalyAverage", SmartGridDashboard.formatDecimal(summary.average_score || 0, 3));
+          metric("anomalyHighest", SmartGridDashboard.formatDecimal(summary.highest_score || 0, 3));
+          metric("anomalyAreas", SmartGridDashboard.formatNumber(summary.impacted_areas || 0));
 
           SmartGridCharts.renderHistogram(
             "anomalyHistogram",

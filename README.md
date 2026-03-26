@@ -1,6 +1,6 @@
 # Smart Grid Electricity Theft, Anomaly, and Energy Wastage Detection System
 
-An end-to-end Bengaluru smart-grid analytics platform. The project simulates smart-meter readings, injects theft and wastage scenarios, detects suspicious behavior with machine learning, forecasts demand, exposes a FastAPI backend, streams realtime updates over WebSockets, renders a dashboard, writes SQLite snapshots, generates a Folium theft heatmap, and now adds advanced analytics for grid topology, risk scoring, segmentation, efficiency, drift monitoring, transformer forecasting, model optimization, reporting, and alerting.
+An end-to-end Bengaluru smart-grid analytics platform. The project simulates smart-meter readings, injects theft and wastage scenarios, detects suspicious behavior with machine learning, forecasts demand, exposes a FastAPI backend, streams realtime updates over WebSockets, renders a dashboard, writes SQLite snapshots, generates a Folium theft heatmap, and adds advanced analytics for risk scoring, segmentation, efficiency, drift monitoring, transformer forecasting, model optimization, reporting, and alerting.
 
 ## What This Project Does
 
@@ -11,7 +11,6 @@ An end-to-end Bengaluru smart-grid analytics platform. The project simulates sma
 - Scores operational risk from multiple signals instead of relying on a single threshold.
 - Measures energy efficiency and highlights wasteful meters.
 - Clusters consumers into behavioral segments.
-- Models the distribution network as substation, feeder, node, and meter relationships.
 - Forecasts demand with both LSTM and Transformer-style sequence models.
 - Monitors incoming data drift and data quality changes.
 - Exposes all analytics through REST endpoints and a live websocket feed.
@@ -133,16 +132,6 @@ Fallback behavior:
 
 The upgraded platform adds a second layer of research-style analytics on top of the original detector and dashboard.
 
-### Grid Network Modeling
-
-Module: `src/grid_network_model.py`
-
-- Uses NetworkX when available
-- Represents `Substation -> Feeder -> Distribution Node -> Smart Meter`
-- Computes feeder loading
-- Detects suspicious clusters of risky meters on the same feeder
-- Exports graph payloads for the D3 network view
-
 ### Risk Scoring System
 
 Module: `src/risk_scoring.py`
@@ -185,14 +174,6 @@ Module: `src/model_optimizer.py`
 - Optimizes XGBoost learning rate
 - Saves best hyperparameters to `models/optimizer_best_params.json`
 
-### Grid Simulation
-
-Module: `src/grid_simulator.py`
-
-- Uses pandapower when installed
-- Falls back to feeder-load heuristics otherwise
-- Estimates voltage stability, line losses, and overload conditions
-
 ### Automated Reporting
 
 Module: `src/report_generator.py`
@@ -218,7 +199,7 @@ Synthetic Smart Meter Data
   -> Risk scoring + efficiency scoring
   -> LSTM + Transformer forecasting
   -> SHAP / feature-importance explanation
-  -> Grid graph + feeder analysis + drift monitor
+  -> Drift monitor
   -> FastAPI + WebSocket + SQLite
   -> Dashboard + Folium heatmap + PDF report + alert hooks
 ```
@@ -262,8 +243,6 @@ electricity_theft_detection/
 |   |-- demand_forecasting.py
 |   |-- energy_efficiency.py
 |   |-- explainable_ai.py
-|   |-- grid_network_model.py
-|   |-- grid_simulator.py
 |   |-- model_optimizer.py
 |   |-- report_generator.py
 |   |-- risk_scoring.py
@@ -307,7 +286,7 @@ pip install -r requirements-test.txt
 
 ### Advanced Optional Install
 
-Install this only if you want the Optuna, Evidently, pandapower, and PyTorch paths enabled:
+Install this only if you want the Optuna, Evidently, and PyTorch paths enabled:
 
 ```bash
 pip install -r requirements-advanced.txt
@@ -440,7 +419,6 @@ Advanced endpoints:
 - `GET /risk-scores`
 - `GET /consumer-segments`
 - `GET /efficiency`
-- `GET /grid-status`
 - `GET /drift-report`
 
 ## Dashboard Panels
@@ -453,11 +431,9 @@ The upgraded dashboard now includes:
 - Area-wise consumption chart
 - Theft detection panel
 - Wastage and efficiency panel
-- Grid network view
 - Risk distribution panel
 - Consumer segmentation panel
 - Efficiency monitor
-- Grid status panel
 - Data drift panel
 - Demand forecast comparison panel
 - Smart meter monitoring table
@@ -502,15 +478,13 @@ The tests cover:
 - Risk scoring
 - Consumer clustering
 - Energy efficiency scoring
-- Grid network graph and feeder load generation
 - API health endpoint
 - Sample output export
 
 ## Practical Notes
 
 - The project is designed to run in reduced mode when optional heavy libraries are not installed.
-- `networkx` is part of the standard stack because the grid-graph path is lightweight.
-- PyTorch, Evidently, Optuna, and pandapower are optional and are activated by `requirements-advanced.txt`.
+- PyTorch, Evidently, and Optuna are optional and are activated by `requirements-advanced.txt`.
 - If those advanced packages are absent, the project still runs end to end using deterministic fallbacks.
 - OpenWeather is optional. Synthetic Bengaluru weather is used when no API key is configured.
 
@@ -540,13 +514,11 @@ The platform now combines:
 - KMeans and DBSCAN for consumer segmentation
 - Efficiency scoring for wastage analysis
 - LSTM and Transformer forecasting for demand prediction
-- NetworkX and feeder analytics for grid modeling
 - Evidently-style drift checks for distribution monitoring
 - Optuna-based optimization for model tuning
-- pandapower-compatible simulation for grid-state estimation
 - SHAP for explainable AI
 
-That mix is intentional. Smart-grid monitoring requires anomaly detection, supervised theft scoring, temporal forecasting, grid analysis, and explainability at the same time.
+That mix is intentional. Smart-grid monitoring requires anomaly detection, supervised theft scoring, temporal forecasting, and explainability at the same time.
 
 ## Verified Windows PowerShell Command Order
 

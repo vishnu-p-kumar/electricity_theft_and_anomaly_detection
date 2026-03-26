@@ -7,7 +7,6 @@
     demand_forecast: { path: "./sections/demand_forecast.html", title: "Demand Forecasting", subtitle: "LSTM and Transformer demand projections for the next hour, day, and week." },
     energy_efficiency: { path: "./sections/energy_efficiency.html", title: "Energy Efficiency Analytics", subtitle: "Efficiency scores, wastage exposure, and power-factor performance by area." },
     consumer_segmentation: { path: "./sections/consumer_segmentation.html", title: "Consumer Segmentation", subtitle: "Behavioral clustering across residential, commercial, industrial, and suspicious usage." },
-    grid_network: { path: "./sections/grid_network.html", title: "Grid Network Visualization", subtitle: "Substations, feeders, nodes, and meter clusters across the Bengaluru grid graph." },
     heatmap: { path: "./sections/heatmap.html", title: "Bengaluru Heatmap", subtitle: "Interactive theft and anomaly hotspots on a live geospatial control map." },
     weather_impact: { path: "./sections/weather_impact.html", title: "Weather Impact Analytics", subtitle: "Demand correlations against temperature, humidity, rainfall, and live weather shifts." },
     alerts: { path: "./sections/alerts.html", title: "Alert Center", subtitle: "Realtime alert streams for theft, anomalies, voltage irregularities, and drift events." },

@@ -1,6 +1,6 @@
 # Models Used In This Project
 
-This project uses different models because electricity theft detection is not a single problem. It includes anomaly detection, theft classification, demand forecasting, clustering, explainability, drift monitoring, and grid analysis.
+This project uses different models because electricity theft detection is not a single problem. It includes anomaly detection, theft classification, demand forecasting, clustering, explainability, and drift monitoring.
 
 ## 1. `src/train_models.py`
 
@@ -128,21 +128,7 @@ This project uses different models because electricity theft detection is not a 
 - Why selected: it can efficiently search better parameters for the main detection models
 - Use of model: tunes Isolation Forest contamination, Random Forest depth, and XGBoost learning rate
 
-## 10. `src/grid_simulator.py`
-
-### pandapower
-
-- Used for: electrical grid simulation
-- Why selected: it is suitable for power-system analysis and feeder-level simulation
-- Use of model: simulates feeder voltage stability, overload conditions, and estimated line losses
-
-### Fallback Heuristic Grid Model
-
-- Used for: grid status without pandapower
-- Why selected: the project should still report grid condition even when heavy power-system libraries are not installed
-- Use of model: estimates feeder load, voltage stability, and losses using formulas
-
-## 11. Summary
+## 10. Summary
 
 ### Main detection and forecasting files
 
@@ -155,7 +141,6 @@ This project uses different models because electricity theft detection is not a 
 - `src/explainable_ai.py`: SHAP
 - `src/data_drift_monitor.py`: Evidently or fallback statistical drift
 - `src/model_optimizer.py`: Optuna
-- `src/grid_simulator.py`: pandapower or fallback heuristic model
 
 ### Why these models were selected overall
 
@@ -167,4 +152,3 @@ This project uses different models because electricity theft detection is not a 
 - SHAP improves trust by explaining predictions
 - Evidently helps monitor production data quality and drift
 - Optuna improves model settings automatically
-- pandapower supports realistic grid simulation

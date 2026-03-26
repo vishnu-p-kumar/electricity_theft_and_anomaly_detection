@@ -134,8 +134,8 @@
           SmartGridHeatmap.renderMap("heatmapMap", { meters, theft, anomalies });
 
           metric("heatmapMeterCount", SmartGridDashboard.formatNumber(meters.length));
-          metric("heatmapTheftCount", SmartGridDashboard.formatNumber(theft.length));
-          metric("heatmapAnomalyCount", SmartGridDashboard.formatNumber(anomalies.length));
+          metric("heatmapTheftCount", SmartGridDashboard.formatNumber(theftPayload.count || theft.length));
+          metric("heatmapAnomalyCount", SmartGridDashboard.formatNumber(anomalyPayload.count || anomalies.length));
           metric("heatmapAreaCount", SmartGridDashboard.formatNumber(new Set(meters.map((row) => row.area).filter(Boolean)).size));
 
           renderHotspots(meters, theft, anomalies);

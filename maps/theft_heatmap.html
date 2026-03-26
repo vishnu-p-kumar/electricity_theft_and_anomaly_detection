@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_ab5f87cafd7b55ec77b7fcc328e07394 {
+                #map_ee37648fae68d139187783569426c60d {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -50,19 +50,18 @@
             </script>
 
         
-    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
 </head>
 <body>
     
     
-            <div class="folium-map" id="map_ab5f87cafd7b55ec77b7fcc328e07394" ></div>
+            <div class="folium-map" id="map_ee37648fae68d139187783569426c60d" ></div>
         
 </body>
 <script>
     
     
-            var map_ab5f87cafd7b55ec77b7fcc328e07394 = L.map(
-                "map_ab5f87cafd7b55ec77b7fcc328e07394",
+            var map_ee37648fae68d139187783569426c60d = L.map(
+                "map_ee37648fae68d139187783569426c60d",
                 {
                     center: [12.9716, 77.5946],
                     crs: L.CRS.EPSG3857,
@@ -79,7 +78,7 @@
 
         
     
-            var tile_layer_0296ed15d6bdddfebf91a43c5f174cb6 = L.tileLayer(
+            var tile_layer_51889be9e35d298a952e2ee95cdb6631 = L.tileLayer(
                 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
                 {
   "minZoom": 0,
@@ -96,41 +95,28 @@
             );
         
     
-            tile_layer_0296ed15d6bdddfebf91a43c5f174cb6.addTo(map_ab5f87cafd7b55ec77b7fcc328e07394);
+            tile_layer_51889be9e35d298a952e2ee95cdb6631.addTo(map_ee37648fae68d139187783569426c60d);
         
     
-            var heat_map_641c108481284c3fc53fdfde99e62526 = L.heatLayer(
-                [[13.11421387377418, 77.60532319639223, 0.9729037110214698]],
+            var marker_2fd09a98a0e63d9c99f2175dea1e3a01 = L.marker(
+                [12.9716, 77.5946],
                 {
-  "minOpacity": 0.5,
-  "maxZoom": 13,
-  "radius": 18,
-  "blur": 14,
 }
-            );
+            ).addTo(map_ee37648fae68d139187783569426c60d);
         
     
-            heat_map_641c108481284c3fc53fdfde99e62526.addTo(map_ab5f87cafd7b55ec77b7fcc328e07394);
-        
-    
-            var circle_marker_cefbe523d61a960752faefc217dcceac = L.circleMarker(
-                [13.11421387377418, 77.60532319639223],
-                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
-            ).addTo(map_ab5f87cafd7b55ec77b7fcc328e07394);
-        
-    
-        var popup_577138d6a49f4bdf185f265c0c6c9e06 = L.popup({
+        var popup_5c8b1126ae98296ad2ad34a6d002c6b9 = L.popup({
   "maxWidth": "100%",
 });
 
         
             
-                var html_f920079862df62b2ba0982bc54000ba1 = $(`<div id="html_f920079862df62b2ba0982bc54000ba1" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
-                popup_577138d6a49f4bdf185f265c0c6c9e06.setContent(html_f920079862df62b2ba0982bc54000ba1);
+                var html_9126dc510e796dfa54d79e3f5f1cf976 = $(`<div id="html_9126dc510e796dfa54d79e3f5f1cf976" style="width: 100.0%; height: 100.0%;">No theft alerts available.</div>`)[0];
+                popup_5c8b1126ae98296ad2ad34a6d002c6b9.setContent(html_9126dc510e796dfa54d79e3f5f1cf976);
             
         
 
-        circle_marker_cefbe523d61a960752faefc217dcceac.bindPopup(popup_577138d6a49f4bdf185f265c0c6c9e06)
+        marker_2fd09a98a0e63d9c99f2175dea1e3a01.bindPopup(popup_5c8b1126ae98296ad2ad34a6d002c6b9)
         ;
 
         

@@ -7,7 +7,6 @@ import pandas as pd
 from src.consumer_segmentation import cluster_consumers
 from src.energy_efficiency import calculate_efficiency_metrics
 from src.feature_engineering import build_feature_matrix
-from src.grid_network_model import build_grid_graph, compute_feeder_load, graph_to_payload
 from src.risk_scoring import score_meter_risk
 from src.transformer_forecasting import forecast_transformer_horizons, train_transformer_forecaster
 
@@ -80,17 +79,6 @@ def test_efficiency_metrics_flag_low_efficiency(sample_meter_frame: pd.DataFrame
     assert "efficiency_score" in scored.columns
     assert scored["efficiency_score"].between(0, 100).all()
     assert int(scored["wastage_flag"].sum()) >= 1
-
-
-def test_grid_network_graph_and_feeder_load(sample_meter_frame: pd.DataFrame) -> None:
-    enriched = calculate_efficiency_metrics(score_meter_risk(_expanded_meter_frame(sample_meter_frame)))
-    graph = build_grid_graph(enriched)
-    payload = graph_to_payload(graph)
-    feeder_load = compute_feeder_load(enriched, graph=graph)
-    assert len(payload["nodes"]) >= enriched["meter_id"].nunique()
-    assert len(payload["edges"]) >= enriched["meter_id"].nunique()
-    assert not feeder_load.empty
-    assert {"feeder_id", "load_ratio", "overload_flag"}.issubset(feeder_load.columns)
 
 
 def test_transformer_forecast_pipeline_returns_expected_shape(sample_meter_frame: pd.DataFrame, tmp_path: Path) -> None:

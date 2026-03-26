@@ -90,6 +90,13 @@ def risk_distribution_by_area(dataframe: pd.DataFrame) -> pd.DataFrame:
     if dataframe.empty:
         return pd.DataFrame(columns=["area", "avg_risk_score", "critical_count", "high_count", "meter_count"])
     frame = dataframe if "risk_score" in dataframe.columns else score_meter_risk(dataframe)
+    frame = frame.copy()
+    if "area" not in frame.columns:
+        frame["area"] = "Unknown"
+    if "risk_level" not in frame.columns:
+        frame["risk_level"] = frame.get("risk_score", pd.Series(0.0, index=frame.index)).apply(_risk_level)
+    if "meter_id" not in frame.columns:
+        frame["meter_id"] = frame.index.astype(str)
     return (
         frame.groupby("area", as_index=False)
         .agg(

@@ -147,20 +147,23 @@ def forecast_transformer_horizons(
         return {"next_hour": 0.0, "next_day": 0.0, "next_week": 0.0, "series": [], "model_type": "baseline"}
 
     if metadata.get("model_type") == "transformer" and torch is not None and model_path.exists():
-        checkpoint = torch.load(model_path, map_location="cpu")
-        model = TransformerRegressor(lookback=int(checkpoint.get("lookback", metadata["lookback"])))
-        model.load_state_dict(checkpoint["state_dict"])
-        model.eval()
-        window = np.asarray(metadata["last_window"], dtype=float).reshape(1, metadata["lookback"], 1)
-        predictions_scaled: list[float] = []
-        for _ in range(horizon):
-            batch = torch.tensor(window, dtype=torch.float32)
-            with torch.no_grad():
-                next_value = float(model(batch).cpu().numpy().ravel()[0])
-            next_value = float(np.clip(next_value, 0.0, 1.5))
-            predictions_scaled.append(next_value)
-            window = np.concatenate([window[:, 1:, :], np.array(next_value).reshape(1, 1, 1)], axis=1)
-        predictions = _inverse_scale(np.asarray(predictions_scaled), metadata)
+        try:
+            checkpoint = torch.load(model_path, map_location="cpu")
+            model = TransformerRegressor(lookback=int(checkpoint.get("lookback", metadata["lookback"])))
+            model.load_state_dict(checkpoint["state_dict"])
+            model.eval()
+            window = np.asarray(metadata["last_window"], dtype=float).reshape(1, metadata["lookback"], 1)
+            predictions_scaled: list[float] = []
+            for _ in range(horizon):
+                batch = torch.tensor(window, dtype=torch.float32)
+                with torch.no_grad():
+                    next_value = float(model(batch).cpu().numpy().ravel()[0])
+                next_value = float(np.clip(next_value, 0.0, 1.5))
+                predictions_scaled.append(next_value)
+                window = np.concatenate([window[:, 1:, :], np.array(next_value).reshape(1, 1, 1)], axis=1)
+            predictions = _inverse_scale(np.asarray(predictions_scaled), metadata)
+        except Exception:
+            predictions = _baseline_forecast(metadata.get("history_values", []), horizon=horizon)
     else:
         predictions = _baseline_forecast(metadata.get("history_values", []), horizon=horizon)
 

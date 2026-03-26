@@ -19,8 +19,6 @@ from src.data_generator import generate_smart_meter_data
 from src.demand_forecasting import forecast_horizons
 from src.energy_efficiency import calculate_efficiency_metrics, summarise_efficiency
 from src.explainable_ai import explain_prediction
-from src.grid_network_model import build_grid_graph, compute_feeder_load, detect_cluster_anomalies, graph_to_payload
-from src.grid_simulator import simulate_grid_state
 from src.preprocess import (
     aggregate_region_consumption,
     aggregate_weather_impact,
@@ -36,7 +34,7 @@ from src.theft_detector import classify_meter_events
 from src.train_models import train_all_models
 from src.transformer_forecasting import forecast_transformer_horizons
 from src.weather_api import WeatherService
-from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, records_for_json
+from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, records_for_json, to_builtin
 
 
 class MeterReading(BaseModel):
@@ -128,7 +126,6 @@ class SmartGridRuntime:
         self.ws_clients: list[WebSocket] = []
         self.cached_forecast: dict[str, Any] = _empty_forecast()
         self.cached_segments = pd.DataFrame()
-        self.cached_grid_status: dict[str, Any] = {"feeders": [], "summary": {}, "network": {"nodes": [], "edges": []}, "clusters": []}
         self.cached_drift_report: dict[str, Any] = {
             "generated_at": None,
             "method": "fallback",
@@ -227,12 +224,6 @@ class SmartGridRuntime:
 
         forecast_payload = self._build_forecast_payload()
         segments = cluster_consumers(self._clustering_source(recent))
-        graph = build_grid_graph(predictions)
-        feeder_load = compute_feeder_load(predictions, graph=graph)
-        grid_status = simulate_grid_state(predictions)
-        grid_status["network"] = graph_to_payload(graph)
-        grid_status["clusters"] = detect_cluster_anomalies(predictions, graph=graph)
-        grid_status["feeder_load"] = records_for_json(feeder_load)
 
         reference_frame = self.historical_frame.sort_values("timestamp").tail(3500)
         drift_report = generate_drift_report(reference_frame=reference_frame, current_frame=recent.tail(1200))
@@ -247,7 +238,6 @@ class SmartGridRuntime:
             self.prediction_buffer.append(predictions.copy())
             self.cached_forecast = forecast_payload
             self.cached_segments = segments
-            self.cached_grid_status = grid_status
             self.cached_drift_report = drift_report
             self.cached_alert_results = alert_results
 
@@ -257,9 +247,6 @@ class SmartGridRuntime:
             dataframe_to_sqlite(self.cached_segments, "consumer_segments")
             dataframe_to_sqlite(self.latest_predictions, "efficiency_metrics")
             dataframe_to_sqlite(_flatten_drift_report(self.cached_drift_report), "drift_reports")
-            grid_table = pd.DataFrame(self.cached_grid_status.get("feeders", []))
-            if not grid_table.empty:
-                dataframe_to_sqlite(grid_table, "grid_status")
 
             forecast_frames: list[pd.DataFrame] = []
             for model_name in ["lstm", "transformer"]:
@@ -293,7 +280,7 @@ class SmartGridRuntime:
             self.ws_clients = [client for client in self.ws_clients if client is not websocket]
 
     def snapshot_message(self) -> dict[str, Any]:
-        return {
+        return to_builtin({
             "type": "live_tick",
             "overview": self.overview_payload(),
             "theft": self.theft_payload(limit=8),
@@ -302,10 +289,9 @@ class SmartGridRuntime:
             "risk": self.risk_scores_payload(limit=12),
             "segments": self.consumer_segments_payload(),
             "efficiency": self.efficiency_payload(limit=10),
-            "grid": self.grid_status_payload(),
             "drift": self.drift_payload(),
             "forecast": self.forecast_payload(),
-        }
+        })
 
     async def broadcast_snapshot(self) -> None:
         payload = self.snapshot_message()
@@ -324,21 +310,30 @@ class SmartGridRuntime:
             recent = self.recent_predictions().copy()
             forecast = dict(self.cached_forecast)
             drift = dict(self.cached_drift_report)
-            grid_summary = dict(self.cached_grid_status.get("summary", {}))
 
         summary = build_overview_snapshot(latest)
         if not self.historical_frame.empty:
             summary["total_meters"] = int(self.historical_frame["meter_id"].nunique())
-        live_consumption = (
-            recent.groupby("timestamp", as_index=False)
-            .agg(
-                total_consumption=("consumption_kwh", "sum"),
-                anomalies=("is_anomaly", "sum"),
-                theft=("status", lambda values: int((values == "Electricity Theft").sum())),
+        if recent.empty:
+            live_consumption = pd.DataFrame(columns=["timestamp", "total_consumption", "anomalies", "theft"])
+        else:
+            recent = recent.copy()
+            if "consumption_kwh" not in recent.columns:
+                recent["consumption_kwh"] = 0.0
+            if "is_anomaly" not in recent.columns:
+                recent["is_anomaly"] = 0
+            if "status" not in recent.columns:
+                recent["status"] = "Normal"
+            live_consumption = (
+                recent.groupby("timestamp", as_index=False)
+                .agg(
+                    total_consumption=("consumption_kwh", "sum"),
+                    anomalies=("is_anomaly", "sum"),
+                    theft=("status", lambda values: int((values == "Electricity Theft").sum())),
+                )
+                .sort_values("timestamp")
+                .tail(24)
             )
-            .sort_values("timestamp")
-            .tail(24)
-        )
         region_consumption = aggregate_region_consumption(latest)
         risk_distribution = risk_distribution_by_area(latest)
 
@@ -349,7 +344,6 @@ class SmartGridRuntime:
             "region_consumption": records_for_json(region_consumption),
             "risk_distribution": records_for_json(risk_distribution),
             "forecast": forecast,
-            "grid_summary": grid_summary,
             "drift_detected": bool(drift.get("drift_detected", False)),
             "alert_results": self.cached_alert_results,
         }
@@ -377,19 +371,30 @@ class SmartGridRuntime:
 
     def anomaly_payload(self, limit: int = 25) -> dict[str, Any]:
         with self.lock:
-            recent = self.recent_predictions().copy()
+            latest = self.latest_predictions.copy()
+        anomaly_frame = latest.loc[(latest["is_anomaly"] == 1) | (latest["status"] == "Anomaly")].copy()
         anomalies = (
-            recent.loc[(recent["is_anomaly"] == 1) | (recent["status"] == "Anomaly")]
+            anomaly_frame
             .sort_values(["anomaly_score", "risk_score"], ascending=False)
             .head(limit)
         )
-        return {"records": records_for_json(anomalies), "count": int(len(anomalies))}
+        return {
+            "records": records_for_json(anomalies),
+            "count": int(len(anomaly_frame)),
+            "summary": {
+                "count": int(len(anomaly_frame)),
+                "average_score": round(float(anomaly_frame["anomaly_score"].mean()), 3) if not anomaly_frame.empty else 0.0,
+                "highest_score": round(float(anomaly_frame["anomaly_score"].max()), 3) if not anomaly_frame.empty else 0.0,
+                "impacted_areas": int(anomaly_frame["area"].dropna().nunique()) if "area" in anomaly_frame.columns else 0,
+            },
+        }
 
     def theft_payload(self, limit: int = 20) -> dict[str, Any]:
         with self.lock:
-            recent = self.recent_predictions().copy()
+            latest = self.latest_predictions.copy()
+        theft_frame = latest.loc[latest["status"] == "Electricity Theft"].copy()
         theft_records = (
-            recent.loc[recent["status"] == "Electricity Theft"]
+            theft_frame
             .sort_values(["risk_score", "theft_probability"], ascending=False)
             .head(limit)
             .copy()
@@ -402,7 +407,15 @@ class SmartGridRuntime:
 
         return {
             "records": records_for_json(theft_records),
-            "count": int(len(theft_records)),
+            "count": int(len(theft_frame)),
+            "summary": {
+                "count": int(len(theft_frame)),
+                "average_risk_score": round(float(theft_frame["risk_score"].mean()), 2) if not theft_frame.empty else 0.0,
+                "average_theft_probability": round(float(theft_frame["theft_probability"].mean()), 4) if not theft_frame.empty else 0.0,
+                "critical_areas": int(theft_frame.loc[theft_frame["risk_score"] >= 80, "area"].dropna().nunique())
+                if not theft_frame.empty and "area" in theft_frame.columns
+                else 0,
+            },
             "heatmap_path": "./theft_heatmap.html",
         }
 
@@ -450,11 +463,8 @@ class SmartGridRuntime:
             latest = self.latest_predictions.copy()
         return summarise_efficiency(latest, limit=limit)
 
-    def grid_status_payload(self) -> dict[str, Any]:
-        return self.cached_grid_status
-
     def drift_payload(self) -> dict[str, Any]:
-        return self.cached_drift_report
+        return to_builtin(self.cached_drift_report)
 
     def health_payload(self) -> dict[str, Any]:
         artifacts = {
@@ -600,11 +610,6 @@ def get_consumer_segments() -> dict[str, Any]:
 @app.get("/efficiency")
 def get_efficiency(limit: int = 20) -> dict[str, Any]:
     return runtime.efficiency_payload(limit=limit)
-
-
-@app.get("/grid-status")
-def get_grid_status() -> dict[str, Any]:
-    return runtime.grid_status_payload()
 
 
 @app.get("/drift-report")

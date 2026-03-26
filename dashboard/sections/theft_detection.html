@@ -39,7 +39,7 @@
         <article class="kpi-card glass-card">
           <span class="kpi-label">Theft Alerts</span>
           <strong class="kpi-value" id="theftAlertCount">0</strong>
-          <div class="kpi-meta">Meters currently classified as electricity theft</div>
+          <div class="kpi-meta">Meters classified as electricity theft on the current tick</div>
         </article>
         <article class="kpi-card glass-card">
           <span class="kpi-label">Average Risk Score</span>
@@ -178,20 +178,13 @@
           state.theft = theft || { records: [] };
           state.risk = risk || { distribution: [] };
           const records = state.theft.records || [];
+          const summary = state.theft.summary || {};
           const distribution = state.risk.distribution || [];
 
-          const averageRisk = records.length
-            ? records.reduce((sum, row) => sum + Number(row.risk_score || 0), 0) / records.length
-            : 0;
-          const averageProbability = records.length
-            ? records.reduce((sum, row) => sum + Number(row.theft_probability || 0), 0) / records.length
-            : 0;
-          const criticalAreas = new Set(records.filter((row) => Number(row.risk_score || 0) >= 80).map((row) => row.area)).size;
-
-          metric("theftAlertCount", SmartGridDashboard.formatNumber(records.length));
-          metric("theftAverageRisk", SmartGridDashboard.formatDecimal(averageRisk, 1));
-          metric("theftAverageProbability", SmartGridDashboard.formatDecimal(averageProbability, 2));
-          metric("theftCriticalAreas", SmartGridDashboard.formatNumber(criticalAreas));
+          metric("theftAlertCount", SmartGridDashboard.formatNumber(summary.count || theft.count || 0));
+          metric("theftAverageRisk", SmartGridDashboard.formatDecimal(summary.average_risk_score || 0, 1));
+          metric("theftAverageProbability", SmartGridDashboard.formatDecimal(summary.average_theft_probability || 0, 2));
+          metric("theftCriticalAreas", SmartGridDashboard.formatNumber(summary.critical_areas || 0));
 
           const areaFilter = document.getElementById("theftAreaFilter");
           const selectedArea = areaFilter.value;

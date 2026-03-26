@@ -96,7 +96,7 @@ def build_overview_snapshot(dataframe: pd.DataFrame) -> dict[str, float]:
         "active_meters": int(latest["meter_id"].nunique()),
         "anomalies": int((latest.get("is_anomaly", pd.Series(dtype=int)) == 1).sum()),
         "theft": int((latest.get("status", pd.Series(dtype=object)) == "Electricity Theft").sum()),
-        "wastage": int((latest.get("status", pd.Series(dtype=object)) == "Power Wastage").sum()),
+        "wastage": int((latest.get("wastage_flag", pd.Series(dtype=int)) == 1).sum()),
     }
 
 
@@ -118,8 +118,13 @@ def aggregate_weather_impact(dataframe: pd.DataFrame) -> pd.DataFrame:
 def aggregate_region_consumption(dataframe: pd.DataFrame) -> pd.DataFrame:
     if dataframe.empty:
         return pd.DataFrame(columns=["area", "consumption_kwh"])
+    frame = dataframe.copy()
+    if "area" not in frame.columns:
+        frame["area"] = "Unknown"
+    if "consumption_kwh" not in frame.columns:
+        frame["consumption_kwh"] = 0.0
     return (
-        dataframe.groupby("area", as_index=False)
+        frame.groupby("area", as_index=False)
         .agg(consumption_kwh=("consumption_kwh", "sum"))
         .sort_values("consumption_kwh", ascending=False)
         .reset_index(drop=True)
