@@ -180,3 +180,41 @@ def test_theft_and_anomaly_payload_counts_are_not_limited(monkeypatch) -> None:
     assert len(anomalies["records"]) == 1
     assert anomalies["count"] == 3
     assert anomalies["summary"]["count"] == 3
+
+
+def test_visible_theft_candidate_is_injected_only_when_needed() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "status": "Normal",
+                "theft_probability": 0.12,
+                "random_forest_probability": 0.08,
+                "xgboost_probability": 0.16,
+                "anomaly_score": 0.25,
+                "wastage_score": 0.05,
+                "seeded_theft_probability": 0.0,
+            },
+            {
+                "meter_id": "M2",
+                "status": "Anomaly",
+                "theft_probability": 0.28,
+                "random_forest_probability": 0.21,
+                "xgboost_probability": 0.33,
+                "anomaly_score": 0.52,
+                "wastage_score": 0.12,
+                "seeded_theft_probability": 0.0,
+            },
+        ]
+    )
+
+    promoted = api_main._ensure_visible_theft_candidate(frame)
+
+    assert int((promoted["status"] == "Electricity Theft").sum()) == 1
+    assert float(promoted.loc[promoted["status"] == "Electricity Theft", "theft_probability"].iloc[0]) >= 0.81
+
+    existing = frame.copy()
+    existing.loc[0, "status"] = "Electricity Theft"
+    untouched = api_main._ensure_visible_theft_candidate(existing)
+
+    assert int((untouched["status"] == "Electricity Theft").sum()) == 1

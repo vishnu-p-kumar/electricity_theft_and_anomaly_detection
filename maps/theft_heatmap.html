@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_ee37648fae68d139187783569426c60d {
+                #map_c553111366e17fbb829bedfbf65a308e {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -50,18 +50,19 @@
             </script>
 
         
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
 </head>
 <body>
     
     
-            <div class="folium-map" id="map_ee37648fae68d139187783569426c60d" ></div>
+            <div class="folium-map" id="map_c553111366e17fbb829bedfbf65a308e" ></div>
         
 </body>
 <script>
     
     
-            var map_ee37648fae68d139187783569426c60d = L.map(
-                "map_ee37648fae68d139187783569426c60d",
+            var map_c553111366e17fbb829bedfbf65a308e = L.map(
+                "map_c553111366e17fbb829bedfbf65a308e",
                 {
                     center: [12.9716, 77.5946],
                     crs: L.CRS.EPSG3857,
@@ -78,7 +79,7 @@
 
         
     
-            var tile_layer_51889be9e35d298a952e2ee95cdb6631 = L.tileLayer(
+            var tile_layer_c8147e0f05079ad777cb31b1ef99e40a = L.tileLayer(
                 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
                 {
   "minZoom": 0,
@@ -95,28 +96,179 @@
             );
         
     
-            tile_layer_51889be9e35d298a952e2ee95cdb6631.addTo(map_ee37648fae68d139187783569426c60d);
+            tile_layer_c8147e0f05079ad777cb31b1ef99e40a.addTo(map_c553111366e17fbb829bedfbf65a308e);
         
     
-            var marker_2fd09a98a0e63d9c99f2175dea1e3a01 = L.marker(
-                [12.9716, 77.5946],
+            var heat_map_48abcb6cb917c7bad6d9e333f8717d78 = L.heatLayer(
+                [[13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81]],
                 {
+  "minOpacity": 0.5,
+  "maxZoom": 13,
+  "radius": 18,
+  "blur": 14,
 }
-            ).addTo(map_ee37648fae68d139187783569426c60d);
+            );
         
     
-        var popup_5c8b1126ae98296ad2ad34a6d002c6b9 = L.popup({
+            heat_map_48abcb6cb917c7bad6d9e333f8717d78.addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+            var circle_marker_8a76411ec1a57aa296382672d5e74729 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_ab6b1121485476388576ecf53e85ecb9 = L.popup({
   "maxWidth": "100%",
 });
 
         
             
-                var html_9126dc510e796dfa54d79e3f5f1cf976 = $(`<div id="html_9126dc510e796dfa54d79e3f5f1cf976" style="width: 100.0%; height: 100.0%;">No theft alerts available.</div>`)[0];
-                popup_5c8b1126ae98296ad2ad34a6d002c6b9.setContent(html_9126dc510e796dfa54d79e3f5f1cf976);
+                var html_11e5d1ea23fb87b30b44697e4865756e = $(`<div id="html_11e5d1ea23fb87b30b44697e4865756e" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_ab6b1121485476388576ecf53e85ecb9.setContent(html_11e5d1ea23fb87b30b44697e4865756e);
             
         
 
-        marker_2fd09a98a0e63d9c99f2175dea1e3a01.bindPopup(popup_5c8b1126ae98296ad2ad34a6d002c6b9)
+        circle_marker_8a76411ec1a57aa296382672d5e74729.bindPopup(popup_ab6b1121485476388576ecf53e85ecb9)
+        ;
+
+        
+    
+    
+            var circle_marker_3839edbd5ee8ce8b3b8e3acb99290cf3 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_e6021c68eaf168b2d1382f4b0a63f242 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8735cc129b684679cd943818989b49b0 = $(`<div id="html_8735cc129b684679cd943818989b49b0" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_e6021c68eaf168b2d1382f4b0a63f242.setContent(html_8735cc129b684679cd943818989b49b0);
+            
+        
+
+        circle_marker_3839edbd5ee8ce8b3b8e3acb99290cf3.bindPopup(popup_e6021c68eaf168b2d1382f4b0a63f242)
+        ;
+
+        
+    
+    
+            var circle_marker_76ae2af8afe96ef5033371c423e914d8 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_21ca6096e3dd19e1205d1f452f06dae6 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8dd71955bb0d964a60245027c56e87d9 = $(`<div id="html_8dd71955bb0d964a60245027c56e87d9" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_21ca6096e3dd19e1205d1f452f06dae6.setContent(html_8dd71955bb0d964a60245027c56e87d9);
+            
+        
+
+        circle_marker_76ae2af8afe96ef5033371c423e914d8.bindPopup(popup_21ca6096e3dd19e1205d1f452f06dae6)
+        ;
+
+        
+    
+    
+            var circle_marker_1804a41ceab9b5e767d25464fd4a3f5c = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_4407579edc3fe4fa60c26c8fab0e413a = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4197ed9e4fffa76832387dd376b81e9f = $(`<div id="html_4197ed9e4fffa76832387dd376b81e9f" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_4407579edc3fe4fa60c26c8fab0e413a.setContent(html_4197ed9e4fffa76832387dd376b81e9f);
+            
+        
+
+        circle_marker_1804a41ceab9b5e767d25464fd4a3f5c.bindPopup(popup_4407579edc3fe4fa60c26c8fab0e413a)
+        ;
+
+        
+    
+    
+            var circle_marker_d6d2f9c8473c089f73a2006258c7ffe7 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_a5bd825bbfd0e2c6114cb022f1f63908 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_61c881d5c40d477781634db258c60afc = $(`<div id="html_61c881d5c40d477781634db258c60afc" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_a5bd825bbfd0e2c6114cb022f1f63908.setContent(html_61c881d5c40d477781634db258c60afc);
+            
+        
+
+        circle_marker_d6d2f9c8473c089f73a2006258c7ffe7.bindPopup(popup_a5bd825bbfd0e2c6114cb022f1f63908)
+        ;
+
+        
+    
+    
+            var circle_marker_b1370aee4348646e06aacfca4840eb53 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_74fbc3110ef9bfc7a30fb59a3085b63b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f72cbce0062ab8cc0ec96cb19a5034d3 = $(`<div id="html_f72cbce0062ab8cc0ec96cb19a5034d3" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_74fbc3110ef9bfc7a30fb59a3085b63b.setContent(html_f72cbce0062ab8cc0ec96cb19a5034d3);
+            
+        
+
+        circle_marker_b1370aee4348646e06aacfca4840eb53.bindPopup(popup_74fbc3110ef9bfc7a30fb59a3085b63b)
+        ;
+
+        
+    
+    
+            var circle_marker_87947895c0226a56fcd48160d2153409 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_c553111366e17fbb829bedfbf65a308e);
+        
+    
+        var popup_9a6bd793c28dde17f99e7d495e7c3391 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8fc112c9e1178e82a3efc88f11721e94 = $(`<div id="html_8fc112c9e1178e82a3efc88f11721e94" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_9a6bd793c28dde17f99e7d495e7c3391.setContent(html_8fc112c9e1178e82a3efc88f11721e94);
+            
+        
+
+        circle_marker_87947895c0226a56fcd48160d2153409.bindPopup(popup_9a6bd793c28dde17f99e7d495e7c3391)
         ;
 
         
