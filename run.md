@@ -9,6 +9,7 @@ cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\e
 ## 2. Set the Python interpreter
 
 If `python` works on your machine, you can use it directly.
+If it does not, set the interpreter path first.
 On this system, use:
 
 ```powershell
@@ -19,6 +20,12 @@ $PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe"
 
 ```powershell
 Copy-Item .env.example .env -ErrorAction SilentlyContinue
+```
+
+You can verify the interpreter is set correctly with:
+
+```powershell
+& $PYTHON --version
 ```
 
 ## 4. Install dependencies
@@ -56,6 +63,12 @@ This command:
 - Generates the heatmap
 - Exports sample outputs
 - Generates the daily report
+
+If you only want to refresh data and artifacts without retraining:
+
+```powershell
+& $PYTHON run_project.py --skip-training
+```
 
 ## 6. Start the backend
 
@@ -125,13 +138,9 @@ Then open:
 http://127.0.0.1:8080/index.html
 ```
 
+Keep both terminals open while using the project.
+
 ## 9. Useful optional commands
-
-Generate data only:
-
-```powershell
-& $PYTHON run_project.py --skip-training
-```
 
 Generate full-scale dataset:
 
@@ -149,6 +158,13 @@ Generate artifacts and start only the API:
 
 ```powershell
 & $PYTHON run_project.py --start-api
+```
+
+Start the frontend static server only:
+
+```powershell
+Set-Location dashboard
+& $PYTHON -m http.server 8080
 ```
 
 Run tests:
@@ -176,4 +192,45 @@ In a second terminal:
 cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\electricity_theft_and_anomaly_detection\dashboard"
 $PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe"
 & $PYTHON -m http.server 8080
+```
+
+## Direct commands without `$PYTHON`
+
+If you do not want to set the PowerShell variable, run the full path directly:
+
+```powershell
+& "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe" run_project.py
+& "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe" -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+Set-Location dashboard
+& "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe" -m http.server 8080
+```
+
+## Final Command Order
+
+Use these commands in this exact order.
+
+```powershell
+cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\electricity_theft_and_anomaly_detection"
+$PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe"
+Copy-Item .env.example .env -ErrorAction SilentlyContinue
+& $PYTHON --version
+& $PYTHON -m pip install -r requirements.txt
+& $PYTHON -m pip install -r requirements-test.txt
+& $PYTHON run_project.py
+& $PYTHON -m pytest
+& $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+Open a second terminal for the frontend and run:
+
+```powershell
+cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\electricity_theft_and_anomaly_detection\dashboard"
+$PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe"
+& $PYTHON -m http.server 8080
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080/index.html
 ```
