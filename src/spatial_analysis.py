@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 
 import pandas as pd
 
@@ -17,9 +18,11 @@ except Exception:  # pragma: no cover - optional at runtime
 def build_theft_heatmap(dataframe: pd.DataFrame, output_path: str | Path | None = None) -> Path:
     paths = ensure_project_dirs()
     output_path = Path(output_path) if output_path else paths.map_path
+    dashboard_output = paths.dashboard_dir / "theft_heatmap.html"
     if output_path.exists() and output_path.is_dir():
         output_path = output_path / "theft_heatmap.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    dashboard_output.parent.mkdir(parents=True, exist_ok=True)
 
     theft_frame = dataframe.copy()
     if "status" in theft_frame:
@@ -30,16 +33,19 @@ def build_theft_heatmap(dataframe: pd.DataFrame, output_path: str | Path | None 
         theft_frame = theft_frame.loc[theft_frame["is_theft"] == 1]
 
     if folium is None or HeatMap is None:
+        html = "<html><body><h2>Folium is not installed.</h2><p>Install dependencies and rerun the pipeline to generate the theft heatmap.</p></body></html>"
         output_path.write_text(
-            "<html><body><h2>Folium is not installed.</h2><p>Install dependencies and rerun the pipeline to generate the theft heatmap.</p></body></html>",
+            html,
             encoding="utf-8",
         )
+        dashboard_output.write_text(html, encoding="utf-8")
         return output_path
 
     map_object = folium.Map(location=[12.9716, 77.5946], zoom_start=11, tiles="CartoDB positron")
     if theft_frame.empty:
         folium.Marker([12.9716, 77.5946], popup="No theft alerts available.").add_to(map_object)
         map_object.save(output_path)
+        shutil.copyfile(output_path, dashboard_output)
         return output_path
 
     heat_data = theft_frame[["latitude", "longitude", "theft_probability"]].fillna(0.0).values.tolist()
@@ -57,4 +63,5 @@ def build_theft_heatmap(dataframe: pd.DataFrame, output_path: str | Path | None 
         ).add_to(map_object)
 
     map_object.save(output_path)
+    shutil.copyfile(output_path, dashboard_output)
     return output_path

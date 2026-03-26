@@ -1,81 +1,21 @@
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1774534841.208302   20724 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1774535430.247024   10144 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1774534847.589412   20724 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-INFO:     Started server process [17720]
+I0000 00:00:1774535435.924104   10144 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+INFO:     Started server process [2520]
 INFO:     Waiting for application startup.
-I0000 00:00:1774534860.119810   20724 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+I0000 00:00:1774535447.839531   10144 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:50629 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:61756 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:56364 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:64037 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:57776 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:60312 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:60839 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:60804 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:59056 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:51445 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:58315 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:53654 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:59090 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     connection closed
-INFO:     127.0.0.1:49788 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:60346 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:52134 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:49855 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:55671 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:52135 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:56971 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-INFO:     127.0.0.1:62849 - "WebSocket /ws/live" [accepted]
-INFO:     connection open
-Exception ignored in: <function Image.__del__ at 0x000001EBF188F7E0>
-Traceback (most recent call last):
-  File "C:\Users\vishn\AppData\Local\Programs\Python\Python311\Lib\tkinter\__init__.py", line 4105, in __del__
-    self.tk.call('image', 'delete', self.name)
-RuntimeError: main thread is not in main loop
-Exception ignored in: <function Variable.__del__ at 0x000001EBF17E8A40>
-Traceback (most recent call last):
-  File "C:\Users\vishn\AppData\Local\Programs\Python\Python311\Lib\tkinter\__init__.py", line 410, in __del__
-    if self._tk.getboolean(self._tk.call("info", "exists", self._name)):
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: main thread is not in main loop
-Exception ignored in: <function Variable.__del__ at 0x000001EBF17E8A40>
-Traceback (most recent call last):
-  File "C:\Users\vishn\AppData\Local\Programs\Python\Python311\Lib\tkinter\__init__.py", line 410, in __del__
-    if self._tk.getboolean(self._tk.call("info", "exists", self._name)):
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: main thread is not in main loop
-Exception ignored in: <function Variable.__del__ at 0x000001EBF17E8A40>
-Traceback (most recent call last):
-  File "C:\Users\vishn\AppData\Local\Programs\Python\Python311\Lib\tkinter\__init__.py", line 410, in __del__
-    if self._tk.getboolean(self._tk.call("info", "exists", self._name)):
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: main thread is not in main loop
-Exception ignored in: <function Variable.__del__ at 0x000001EBF17E8A40>
-Traceback (most recent call last):
-  File "C:\Users\vishn\AppData\Local\Programs\Python\Python311\Lib\tkinter\__init__.py", line 410, in __del__
-    if self._tk.getboolean(self._tk.call("info", "exists", self._name)):
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: main thread is not in main loop
-Tcl_AsyncDelete: async handler deleted by the wrong thread

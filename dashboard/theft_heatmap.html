@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_92276245aa50382a2654019cb97193f7 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_92276245aa50382a2654019cb97193f7" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_92276245aa50382a2654019cb97193f7 = L.map(
+                "map_92276245aa50382a2654019cb97193f7",
+                {
+                    center: [12.9716, 77.5946],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 11,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_574452c6a0b7f0c1ad133e3498bf036e = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_574452c6a0b7f0c1ad133e3498bf036e.addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+            var heat_map_79847391ab9a90f388bfe385a2c6fb02 = L.heatLayer(
+                [[13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81], [13.11421387377418, 77.60532319639223, 0.81]],
+                {
+  "minOpacity": 0.5,
+  "maxZoom": 13,
+  "radius": 18,
+  "blur": 14,
+}
+            );
+        
+    
+            heat_map_79847391ab9a90f388bfe385a2c6fb02.addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+            var circle_marker_fa2b03276628d31e4b3ae2d9155fbb7d = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+        var popup_aa5035560feb1f620d0fe7773df57b81 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2929ab8519d98f3960ab880c76ff0bf8 = $(`<div id="html_2929ab8519d98f3960ab880c76ff0bf8" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_aa5035560feb1f620d0fe7773df57b81.setContent(html_2929ab8519d98f3960ab880c76ff0bf8);
+            
+        
+
+        circle_marker_fa2b03276628d31e4b3ae2d9155fbb7d.bindPopup(popup_aa5035560feb1f620d0fe7773df57b81)
+        ;
+
+        
+    
+    
+            var circle_marker_db62efc311e4fd89a4c0fc9abb97c02a = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+        var popup_4e38cebd25dd0824666d1e106ea8ebfd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4d44eb4621ae5e36818907cee0fb102a = $(`<div id="html_4d44eb4621ae5e36818907cee0fb102a" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_4e38cebd25dd0824666d1e106ea8ebfd.setContent(html_4d44eb4621ae5e36818907cee0fb102a);
+            
+        
+
+        circle_marker_db62efc311e4fd89a4c0fc9abb97c02a.bindPopup(popup_4e38cebd25dd0824666d1e106ea8ebfd)
+        ;
+
+        
+    
+    
+            var circle_marker_4da13de214f767cfcd2b91c1de3e4877 = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+        var popup_9630bef6125e910647e1f34d2e300cb4 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_6c2f9b221e9a3f8460fedd8cb7cadfc9 = $(`<div id="html_6c2f9b221e9a3f8460fedd8cb7cadfc9" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_9630bef6125e910647e1f34d2e300cb4.setContent(html_6c2f9b221e9a3f8460fedd8cb7cadfc9);
+            
+        
+
+        circle_marker_4da13de214f767cfcd2b91c1de3e4877.bindPopup(popup_9630bef6125e910647e1f34d2e300cb4)
+        ;
+
+        
+    
+    
+            var circle_marker_148bceedadd18cacc324ed4ea517ac9e = L.circleMarker(
+                [13.11421387377418, 77.60532319639223],
+                {"bubblingMouseEvents": true, "color": "#c2410c", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c2410c", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_92276245aa50382a2654019cb97193f7);
+        
+    
+        var popup_e0de70ae7364394bb4a435ad1a38422f = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f9f95b59958e0f4ba252d7abba03521f = $(`<div id="html_f9f95b59958e0f4ba252d7abba03521f" style="width: 100.0%; height: 100.0%;">M0060 | Yelahanka | Electricity Theft</div>`)[0];
+                popup_e0de70ae7364394bb4a435ad1a38422f.setContent(html_f9f95b59958e0f4ba252d7abba03521f);
+            
+        
+
+        circle_marker_148bceedadd18cacc324ed4ea517ac9e.bindPopup(popup_e0de70ae7364394bb4a435ad1a38422f)
+        ;
+
+        
+    
+</script>
+</html>

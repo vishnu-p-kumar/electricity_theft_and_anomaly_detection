@@ -41,14 +41,18 @@
 
     const meterLayer = L.layerGroup();
     meters.forEach((meter) => {
-      if (!meter.latitude || !meter.longitude) {
+      const latitude = Number(meter.latitude);
+      const longitude = Number(meter.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         return;
       }
-      bounds.push([meter.latitude, meter.longitude]);
-      L.circleMarker([meter.latitude, meter.longitude], {
-        radius: 5,
+      bounds.push([latitude, longitude]);
+      L.circleMarker([latitude, longitude], {
+        radius: meter.status === "Electricity Theft" ? 7 : 5,
         color: meter.status === "Electricity Theft" ? "#ef4444" : "#38bdf8",
-        fillOpacity: 0.58,
+        weight: meter.status === "Electricity Theft" ? 3 : 2,
+        fillColor: meter.status === "Electricity Theft" ? "#ef4444" : "#38bdf8",
+        fillOpacity: 0.7,
       })
         .bindPopup(`<strong>${meter.meter_id}</strong><br />${meter.area}<br />Status: ${meter.status}`)
         .addTo(meterLayer);
@@ -58,15 +62,18 @@
 
     const theftLayer = L.layerGroup();
     theft.forEach((record) => {
-      if (!record.latitude || !record.longitude) {
+      const latitude = Number(record.latitude);
+      const longitude = Number(record.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         return;
       }
-      bounds.push([record.latitude, record.longitude]);
-      L.circle([record.latitude, record.longitude], {
-        radius: 520,
+      bounds.push([latitude, longitude]);
+      L.circle([latitude, longitude], {
+        radius: 650,
         color: "#f97316",
+        weight: 3,
         fillColor: "#ef4444",
-        fillOpacity: 0.18,
+        fillOpacity: 0.22,
       })
         .bindPopup(`<strong>Theft Alert</strong><br />${record.meter_id} | ${record.area}`)
         .addTo(theftLayer);
@@ -75,8 +82,8 @@
     store.layers.push(theftLayer);
 
     const anomalyPoints = anomalies
-      .filter((record) => record.latitude && record.longitude)
-      .map((record) => [record.latitude, record.longitude, Number(record.anomaly_score || 0.3)]);
+      .map((record) => [Number(record.latitude), Number(record.longitude), Number(record.anomaly_score || 0.3)])
+      .filter((record) => Number.isFinite(record[0]) && Number.isFinite(record[1]));
     if (typeof L.heatLayer === "function" && anomalyPoints.length) {
       const heatLayer = L.heatLayer(anomalyPoints, {
         radius: 24,
