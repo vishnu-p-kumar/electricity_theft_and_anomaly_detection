@@ -1,213 +1,112 @@
-# Smart Grid Electricity Theft, Anomaly, and Energy Wastage Detection System
-
-An end-to-end Bengaluru smart-grid analytics platform. The project simulates smart-meter readings, injects theft and wastage scenarios, detects suspicious behavior with machine learning, forecasts demand, exposes a FastAPI backend, streams realtime updates over WebSockets, renders a dashboard, writes SQLite snapshots, generates a Folium theft heatmap, and adds advanced analytics for risk scoring, segmentation, efficiency, drift monitoring, transformer forecasting, model optimization, reporting, and alerting.
-
-## What This Project Does
-
-- Simulates hourly electricity usage for Bengaluru smart meters inside valid Bengaluru latitude and longitude bounds.
-- Seeds electricity theft scenarios such as meter bypass, abnormal spikes, constant low reporting, illegal connection, and tampered meters.
-- Detects anomalies in smart-meter behavior.
-- Classifies likely theft using supervised models.
-- Scores operational risk from multiple signals instead of relying on a single threshold.
-- Measures energy efficiency and highlights wasteful meters.
-- Clusters consumers into behavioral segments.
-- Forecasts demand with both LSTM and Transformer-style sequence models.
-- Monitors incoming data drift and data quality changes.
-- Exposes all analytics through REST endpoints and a live websocket feed.
-- Displays the results on a modern HTML dashboard and Bengaluru theft heatmap.
-- Exports PDF-style daily reports and supports alert delivery hooks.
-
-## Core Model Stack
-
-This project intentionally uses multiple model families because smart-grid monitoring is not one modeling problem.
-
-### 1. Isolation Forest
-
-Used for: anomaly detection
-
-Why it is used:
-
-- Electricity theft and equipment abnormalities are rare compared with normal meter readings.
-- Isolation Forest works well when unusual behavior must be isolated without requiring a perfect label for every abnormal record.
-- It is strong on tabular telemetry after feature engineering.
-
-What it contributes:
-
-- Produces `anomaly_score`
-- Flags suspicious behavior even before a theft classifier is confident
-- Supports early investigation workflows
-
-### 2. Random Forest
-
-Used for: supervised theft classification
-
-Why it is used:
-
-- Theft detection is a structured-data classification problem with nonlinear interactions.
-- Random Forest is stable, robust, and usually a strong baseline for smart-meter tabular data.
-- It provides a second probability signal that reduces dependence on a single classifier.
-
-What it contributes:
-
-- Produces `random_forest_probability`
-- Learns from seeded theft scenarios in the synthetic training data
-- Supports ensemble theft scoring and fallback explainability
-
-### 3. XGBoost
-
-Used for: primary theft probability scoring
-
-Why it is used:
-
-- Gradient boosting is often stronger than bagging models on tabular fraud and risk problems.
-- It captures thresholds and interactions sharply.
-- Theft ranking is often more useful operationally than only a hard class label.
-
-What it contributes:
-
-- Produces `xgboost_probability`
-- Feeds the blended `theft_probability`
-- Improves prioritization of the most suspicious meters
-
-Fallback behavior:
-
-- If `xgboost` is unavailable, the code falls back to `HistGradientBoostingClassifier`
-
-### 4. LSTM
-
-Used for: baseline deep learning demand forecasting
-
-Why it is used:
-
-- Demand forecasting is sequential and depends on recent temporal context.
-- LSTM is a practical recurrent baseline for hourly load data with daily and weekly seasonality.
-
-What it contributes:
-
-- Forecasts next hour, next day, and next week
-- Powers the backward-compatible forecast keys already used by the original dashboard and API
-
-Fallback behavior:
-
-- If TensorFlow is unavailable or the sample is too small, the code falls back to a baseline seasonal forecaster
-
-### 5. Transformer Forecasting
-
-Used for: advanced sequence forecasting
-
-Why it is used:
-
-- Transformer encoders can model longer-range temporal dependencies more flexibly than recurrent models.
-- It provides a second forecasting path so the dashboard can compare recurrent and attention-style predictions.
-
-What it contributes:
-
-- Produces a second forecast stream beside LSTM
-- Feeds the dashboard comparison plot and ensemble summary
-
-Fallback behavior:
-
-- If PyTorch is unavailable, the module falls back to a deterministic baseline forecaster
-
-### 6. SHAP
-
-Used for: explainable AI
-
-Why it is used:
-
-- Grid operators need reasons, not only risk scores.
-- SHAP gives local feature contributions for tree-based classifiers.
-- It converts suspicious predictions into human-readable operational reasons.
-
-What it contributes:
-
-- Alert explanations such as high night usage, voltage irregularity, or abnormal wastage
-- Better trust and triage support for the dashboard and API
-
-Fallback behavior:
-
-- If `shap` is unavailable, the project falls back to feature-importance-weighted heuristics
-
-## Advanced Smart Grid Analytics
-
-The upgraded platform adds a second layer of research-style analytics on top of the original detector and dashboard.
-
-### Risk Scoring System
-
-Module: `src/risk_scoring.py`
-
-- Produces a `risk_score` between `0` and `100`
-- Combines anomaly score, blended theft probability, voltage irregularity, and night usage ratio
-- Maps each meter to `Low`, `Medium`, `High`, or `Critical`
-
-### Consumer Segmentation
-
-Module: `src/consumer_segmentation.py`
-
-- Uses KMeans for broad consumer behavior grouping
-- Uses DBSCAN to highlight unusual dense or isolated behavioral groups
-- Segments consumers into Residential, Commercial, Industrial, and Suspicious cluster
-
-### Energy Efficiency Analysis
-
-Module: `src/energy_efficiency.py`
-
-- Computes `efficiency_score`
-- Estimates losses from useful energy vs total energy and power factor degradation
-- Flags low-efficiency or wasteful meters
-
-### Data Drift Monitoring
-
-Module: `src/data_drift_monitor.py`
-
-- Uses Evidently when installed
-- Falls back to deterministic distribution-shift checks otherwise
-- Tracks feature drift, concept drift, and data quality issues
-
-### Model Optimization
-
-Module: `src/model_optimizer.py`
-
-- Uses Optuna when installed
-- Optimizes Isolation Forest contamination
-- Optimizes Random Forest max depth
-- Optimizes XGBoost learning rate
-- Saves best hyperparameters to `models/optimizer_best_params.json`
-
-### Automated Reporting
-
-Module: `src/report_generator.py`
-
-- Generates `reports/daily_energy_report.pdf`
-- Includes usage summary, theft incidents, weather impact, and regional consumption
-
-### Alert Notification System
-
-Module: `src/alert_engine.py`
-
-- Supports email, Slack, and Telegram
-- Remains disabled unless credentials and `SMARTGRID_ENABLE_ALERTS=1` are configured
-
-## End-to-End Architecture
-
-```text
-Synthetic Smart Meter Data
-  -> Preprocessing
-  -> Feature Engineering
-  -> Isolation Forest anomaly scoring
-  -> Random Forest + XGBoost theft scoring
-  -> Risk scoring + efficiency scoring
-  -> LSTM + Transformer forecasting
-  -> SHAP / feature-importance explanation
-  -> Drift monitor
-  -> FastAPI + WebSocket + SQLite
-  -> Dashboard + Folium heatmap + PDF report + alert hooks
-```
-
-## Core Engineered Features
-
-Important engineered features include:
-
+# Smart Grid Electricity Theft, Anomaly, and Wastage Detection System
+
+This project simulates a Bengaluru smart-grid deployment, generates smart-meter data, trains multiple machine learning models, serves a FastAPI backend, and displays results through a browser dashboard.
+
+The system is designed to demonstrate:
+
+- electricity theft detection
+- anomaly detection
+- energy wastage detection
+- demand forecasting
+- consumer segmentation
+- weather-impact analysis
+- drift monitoring and reporting
+
+## 1. Project Overview
+
+The project has four main layers:
+
+1. Data generation: synthetic smart-meter readings are created for multiple Bengaluru areas with weather, load behavior, theft patterns, and wastage behavior.
+2. Model training: anomaly, theft, and forecasting models are trained and saved in the `models/` directory.
+3. Runtime simulation API: the backend loads historical data, replays live ticks from the generated simulation dataset, scores each tick, and exposes JSON endpoints and a live websocket.
+4. Frontend dashboard: the dashboard consumes API endpoints and shows KPIs, charts, tables, heatmaps, and downloadable artifacts.
+
+## 2. End-to-End Workflow
+
+The actual project flow in code is:
+
+1. `run_project.py` generates the dataset using [`src/data_generator.py`](src/data_generator.py).
+2. The generated sample dataset is preprocessed by [`src/preprocess.py`](src/preprocess.py).
+3. Engineered features are prepared by `src/feature_engineering.py`.
+4. Detection and forecasting models are trained in [`src/train_models.py`](src/train_models.py).
+5. Model files and metadata are saved in `models/`.
+6. The FastAPI app in [`api/main.py`](api/main.py) bootstraps the dataset and models.
+7. The runtime advances through live timestamps, scores the current tick, computes risk and efficiency, updates forecasts, clustering, drift, reports, and heatmap outputs.
+8. The dashboard in `dashboard/sections/` calls backend endpoints such as `/overview`, `/theft`, `/anomalies`, `/forecast`, `/efficiency`, and `/ws/live`.
+
+## 3. Data Used In The Project
+
+The main dataset file is:
+
+- `dataset/smart_meter_data.csv`
+
+Additional generated files include:
+
+- `data/processed/smart_meter_sample.csv`: sampled training dataset
+- `data/processed/live_simulation.csv`: live replay dataset for the API
+- `data/processed/meter_catalog.csv`: meter registry with area and coordinates
+
+Each row represents a smart-meter reading at a timestamp. The core columns used throughout the project are:
+
+- `meter_id`: unique smart meter identifier
+- `timestamp`: reading time
+- `region`: city or region name, currently Bengaluru
+- `area`: area within Bengaluru
+- `latitude`, `longitude`: geospatial coordinates
+- `voltage`
+- `current`
+- `power`
+- `consumption_kwh`: reported consumption
+- `power_factor`
+- `temperature`
+- `humidity`
+- `rainfall`
+- `wind_speed`
+- `weather_condition`
+- `expected_consumption_kwh`: expected demand before theft/wastage effects
+- `wastage_score`: relative excess use or inefficiency signal
+- `wastage_flag`: binary flag derived from `wastage_score` and `power_factor`
+- `usage_profile`: consumer behavior pattern such as residential or industrial
+- `is_theft`: seeded training label in the synthetic data
+- `theft_type`: synthetic theft scenario such as `meter_bypass` or `illegal_connection`
+- `seeded_theft_probability`: generation-time theft confidence used in the simulation logic
+
+## 4. Parameters And Features Used
+
+### 4.1 Raw input parameters
+
+The models and dashboard are built from electrical, environmental, and contextual parameters:
+
+- voltage
+- current
+- power
+- consumption_kwh
+- power_factor
+- temperature
+- humidity
+- rainfall
+- wind_speed
+- expected_consumption_kwh
+- region
+- area
+- weather_condition
+- usage_profile
+- timestamp-derived hour and day patterns
+
+### 4.2 Engineered features
+
+The feature pipeline uses the base columns above and derived indicators. The configured base feature list is defined in [`utils/helpers.py`](utils/helpers.py) and includes:
+
+- `voltage`
+- `current`
+- `power`
+- `consumption_kwh`
+- `power_factor`
+- `temperature`
+- `humidity`
+- `rainfall`
+- `wind_speed`
+- `expected_consumption_kwh`
 - `hour_of_day`
 - `day_of_week`
 - `rolling_average_consumption`
@@ -220,232 +119,166 @@ Important engineered features include:
 - `current_power_gap`
 - `wastage_score`
 
-These features matter because theft and inefficiency usually appear as patterns across time, weather, and electrical quality rather than one raw measurement.
+Other derived runtime indicators used in later stages include:
 
-## Project Structure
+- `anomaly_score`
+- `is_anomaly`
+- `random_forest_probability`
+- `xgboost_probability`
+- `theft_probability`
+- `status`
+- `risk_score`
+- `risk_level`
+- `risk_summary`
+- `efficiency_score`
+- `estimated_losses_kwh`
 
-```text
-electricity_theft_detection/
-|-- .github/workflows/ci.yml
-|-- api/
-|-- dashboard/
-|-- data/
-|-- database/
-|-- dataset/
-|-- maps/
-|-- models/
-|-- reports/
-|-- sample_outputs/
-|-- src/
-|   |-- alert_engine.py
-|   |-- consumer_segmentation.py
-|   |-- data_drift_monitor.py
-|   |-- demand_forecasting.py
-|   |-- energy_efficiency.py
-|   |-- explainable_ai.py
-|   |-- model_optimizer.py
-|   |-- report_generator.py
-|   |-- risk_scoring.py
-|   |-- transformer_forecasting.py
-|   `-- ...
-|-- tests/
-|-- utils/
-|-- .env.example
-|-- .gitignore
-|-- Dockerfile
-|-- docker-compose.yml
-|-- pytest.ini
-|-- requirements.txt
-|-- requirements-test.txt
-|-- requirements-advanced.txt
-`-- run_project.py
-```
+## 5. Models Used In The Project
 
-## Installation
+This project uses different models because each task is different.
 
-### Prerequisites
+### 5.1 Isolation Forest for anomaly detection
 
-- Python 3.10 or newer
-- `pip`
-- Optional: Docker Desktop
-- Optional: OpenWeather API key
+Defined in [`src/train_models.py`](src/train_models.py) and reused in [`src/detect_anomaly.py`](src/detect_anomaly.py).
 
-### Base Install
+- Purpose: detect unusual meter behavior without relying only on labeled theft examples
+- Training logic: trained mainly on normal training records
+- Output:
+  - `anomaly_score`
+  - `is_anomaly`
+- Why it fits: anomaly detection in utility data is usually sparse and unsupervised methods work well for rare abnormal patterns
 
-Install the standard runnable stack:
+### 5.2 Random Forest for theft classification
 
-```bash
-pip install -r requirements.txt
-```
+Defined in [`src/train_models.py`](src/train_models.py).
 
-Install test dependencies:
+- Purpose: classify whether a meter event is suspicious for electricity theft
+- Output: theft probability from a tree-ensemble classifier
+- Why it fits: robust on tabular data, nonlinear relationships, and mixed operational features
 
-```bash
-pip install -r requirements-test.txt
-```
+### 5.3 XGBoost or HistGradientBoosting fallback
 
-### Advanced Optional Install
+Defined in [`src/train_models.py`](src/train_models.py).
 
-Install this only if you want the Optuna, Evidently, and PyTorch paths enabled:
+- Purpose: boosted theft classifier used with the Random Forest ensemble
+- Output: second theft probability estimate
+- Runtime note: if `xgboost` is unavailable, the project falls back to `HistGradientBoostingClassifier`
+- Why it fits: boosting captures more complex fraud decision boundaries than a single baseline model
 
-```bash
-pip install -r requirements-advanced.txt
-```
+### 5.4 Theft ensemble logic
 
-## Environment Variables
+Defined in [`src/theft_detector.py`](src/theft_detector.py).
 
-Copy the sample file if needed:
+- Final blend:
+  - `0.45 * random_forest_probability`
+  - `0.55 * xgboost_probability`
+- Final field:
+  - `theft_probability`
+- Status logic marks events as `Electricity Theft`, `Anomaly`, or `Normal`
 
-```powershell
-Copy-Item .env.example .env
-```
+### 5.5 LSTM forecaster
 
-Important variables:
+Defined in [`src/demand_forecasting.py`](src/demand_forecasting.py).
 
-- `OPENWEATHER_API_KEY`: enables live OpenWeather snapshots
-- `SMARTGRID_UPDATE_INTERVAL`: websocket/API tick interval in seconds
-- `SMARTGRID_FULL_SCALE`: set to `1` for the full 1000-meter, 365-day generation path
-- `SMARTGRID_ENABLE_ALERTS`: set to `1` to enable outbound alert delivery
-- `SMARTGRID_SLACK_WEBHOOK`: Slack webhook for alert messages
-- `SMARTGRID_TELEGRAM_BOT_TOKEN`: Telegram bot token
-- `SMARTGRID_TELEGRAM_CHAT_ID`: Telegram target chat
-- `SMARTGRID_SMTP_HOST`, `SMARTGRID_SMTP_PORT`, `SMARTGRID_SMTP_USER`, `SMARTGRID_SMTP_PASSWORD`: SMTP settings
-- `SMARTGRID_ALERT_EMAIL_FROM`, `SMARTGRID_ALERT_EMAIL_TO`: email sender and recipient
+- Purpose: short and medium horizon electricity demand forecasting
+- Main outputs:
+  - `next_hour`
+  - `next_day`
+  - `next_week`
+  - future demand `series`
+- Why it fits: LSTM is well suited for sequential demand patterns
+- Runtime fallback: if TensorFlow/Keras model loading fails, the module falls back to a baseline forecaster so the API still works
 
-## How To Run The Project
+### 5.6 Transformer forecaster
 
-### Option 1: Quickstart
+Defined in [`src/transformer_forecasting.py`](src/transformer_forecasting.py).
 
-Recommended for the first run:
+- Purpose: second forecasting path for comparison against LSTM
+- Outputs: same horizon values and forecast series
+- Why it fits: transformer-based sequence models can capture longer temporal structure
+- Runtime fallback: if PyTorch or saved-model loading is not available, the module falls back to a baseline forecast
 
-```bash
-python run_project.py
-```
+### 5.7 KMeans and DBSCAN for consumer segmentation
 
-What it does:
+Defined in [`src/consumer_segmentation.py`](src/consumer_segmentation.py).
 
-- Generates a practical-size seeded dataset
-- Trains anomaly, theft, and forecasting models
-- Generates the Bengaluru theft heatmap
-- Writes sample outputs
-- Generates the daily PDF report
+- Purpose: group meters by usage pattern and isolate suspicious clusters
+- KMeans: creates broad behavioral segments
+- DBSCAN: helps surface dense suspicious groups and outlier behavior
 
-### Option 2: Full Research-Scale Generation
+### 5.8 Risk scoring model
 
-```bash
-python run_project.py --full-scale
-```
+Defined in [`src/risk_scoring.py`](src/risk_scoring.py).
 
-This uses the requested larger simulation path and is heavier on CPU, RAM, and disk.
+This is not a separate ML model but an important decision layer. It combines anomaly, theft, and operational stress indicators into:
 
-### Option 3: Hyperparameter Optimization + Training
+- `risk_score`
+- `risk_level`
+- `risk_summary`
 
-```bash
-python run_project.py --optimize-models --optimization-trials 12
-```
+The risk score is built from weighted components such as:
 
-This runs the Optuna optimization module first when Optuna is installed, saves best parameters, and then trains using those parameters.
+- anomaly behavior
+- theft probability
+- wastage/efficiency pressure
+- power quality indicators
 
-### Option 4: Data Only
+### 5.9 Explainability
 
-```bash
-python run_project.py --skip-training
-```
+Defined in [`src/explainable_ai.py`](src/explainable_ai.py).
 
-### Option 5: Train and Start the API
+- Primary method: SHAP when available
+- Fallback: feature-importance based explanation
+- Output: human-readable reasons behind suspicious predictions
 
-```bash
-python run_project.py --start-api
-```
+### 5.10 Drift monitoring
 
-### Option 6: Run the API Directly
+Defined in [`src/data_drift_monitor.py`](src/data_drift_monitor.py).
 
-After datasets and models exist:
+- Primary method: Evidently when available
+- Fallback: statistical drift checks
+- Output:
+  - feature drift summary
+  - concept drift indicators
+  - data quality issues
 
-```bash
-uvicorn api.main:app --reload
-```
+### 5.11 Hyperparameter optimization
 
-### Option 7: Open the Dashboard
+Defined in [`src/model_optimizer.py`](src/model_optimizer.py).
 
-1. Start the API on `http://127.0.0.1:8000`
-2. Open `dashboard/index.html`
-3. Keep the dashboard API base URL set to `http://127.0.0.1:8000`
+- Tool: Optuna
+- Used for tuning:
+  - Isolation Forest contamination
+  - Random Forest depth
+  - XGBoost learning rate
 
-The dashboard uses both REST polling and `ws://127.0.0.1:8000/ws/live`.
+## 6. Model Training Configuration
 
-## Docker Run
+The main training entry point is [`src/train_models.py`](src/train_models.py).
 
-### Build and Start
+Important training parameters currently used:
 
-```bash
-docker compose up --build
-```
+- `max_rows=60000`
+- `forecast_epochs=5`
+- `seed=42`
+- test split: `20%`
+- Isolation Forest:
+  - `n_estimators=220`
+  - contamination loaded from optimizer output or derived from theft rate
+- Random Forest:
+  - `n_estimators=240`
+  - `max_depth` from optimizer output, default `16`
+  - `min_samples_leaf=2`
+  - `class_weight="balanced_subsample"`
+- XGBoost:
+  - `n_estimators=220`
+  - `max_depth=6`
+  - `learning_rate` from optimizer output, default `0.08`
+  - `subsample=0.85`
+  - `colsample_bytree=0.9`
 
-Services:
+The saved model artifacts include:
 
-- API: `http://127.0.0.1:8000`
-- Dashboard: `http://127.0.0.1:8080`
-
-### Stop
-
-```bash
-docker compose down
-```
-
-Notes:
-
-- The API container installs `requirements.txt`
-- The advanced optional stack is not required for the standard Docker path
-- Reports, models, datasets, database, and maps are written to mounted local folders
-
-## API Endpoints
-
-Core endpoints:
-
-- `GET /`
-- `GET /health`
-- `GET /overview`
-- `GET /meters`
-- `GET /anomalies`
-- `GET /theft`
-- `GET /weather-impact`
-- `GET /forecast`
-- `POST /predict`
-- `GET /ws/live`
-
-Advanced endpoints:
-
-- `GET /risk-scores`
-- `GET /consumer-segments`
-- `GET /efficiency`
-- `GET /drift-report`
-
-## Dashboard Panels
-
-The upgraded dashboard now includes:
-
-- Overview cards
-- Live consumption chart
-- Weather vs usage chart
-- Area-wise consumption chart
-- Theft detection panel
-- Wastage and efficiency panel
-- Risk distribution panel
-- Consumer segmentation panel
-- Efficiency monitor
-- Data drift panel
-- Demand forecast comparison panel
-- Smart meter monitoring table
-
-## Reports and Generated Artifacts
-
-The main generated artifacts include:
-
-- `dataset/smart_meter_data.csv`
-- `data/processed/smart_meter_sample.csv`
-- `data/processed/live_simulation.csv`
-- `data/processed/meter_catalog.csv`
 - `models/isolation_forest.pkl`
 - `models/random_forest.pkl`
 - `models/xgboost_model.pkl`
@@ -454,102 +287,418 @@ The main generated artifacts include:
 - `models/model_metadata.json`
 - `models/demand_metadata.json`
 - `models/transformer_metadata.json`
-- `models/optimizer_best_params.json`
-- `database/meter_data.db`
-- `maps/theft_heatmap.html`
+
+## 7. Synthetic Data Generation Logic
+
+The dataset is produced by [`src/data_generator.py`](src/data_generator.py).
+
+### 7.1 Meter and geography setup
+
+- meters are distributed across named Bengaluru areas
+- coordinates are jittered around area centers
+- each meter gets a usage profile such as:
+  - `residential`
+  - `night_usage`
+  - `industrial`
+  - `ac_heavy`
+  - `commercial`
+
+### 7.2 Theft scenarios
+
+Synthetic theft types include:
+
+- `meter_bypass`
+- `abnormal_spikes`
+- `constant_low_consumption`
+- `illegal_connection`
+- `tampered_meter`
+
+These modify reported consumption, actual load, voltage, and power factor to create realistic suspicious behavior.
+
+### 7.3 Default generation settings
+
+Defined in [`utils/helpers.py`](utils/helpers.py):
+
+Default mode:
+
+- `num_meters=180`
+- `days=60`
+- `chunk_size=45`
+- `sample_rows=45000`
+- `simulation_days=10`
+- `simulation_meter_limit=60`
+- `seed=42`
+
+Full-scale mode:
+
+- `num_meters=1000`
+- `days=365`
+- `chunk_size=100`
+- `sample_rows=120000`
+- `simulation_days=14`
+- `simulation_meter_limit=80`
+- `seed=42`
+
+## 8. Runtime And API Workflow
+
+The backend is implemented in [`api/main.py`](api/main.py).
+
+When the API starts:
+
+1. It ensures the dataset and processed files exist.
+2. It trains models if artifacts are missing.
+3. It loads the historical training frame and live simulation frame.
+4. It builds the first live forecast.
+5. It starts a simulation loop that advances one timestamp at a fixed interval.
+
+For each live tick, the backend:
+
+1. takes the current meter slice from `live_simulation.csv`
+2. classifies theft and anomaly behavior
+3. ensures at least one visible theft candidate for presentation/demo purposes if the current tick has zero theft alerts
+4. computes risk score and efficiency metrics
+5. updates recent-history buffers
+6. refreshes forecast, segmentation, drift, alert payloads, SQLite tables, heatmap, and reports
+7. sends the combined snapshot over `/ws/live`
+
+Main API endpoints:
+
+- `/health`
+- `/overview`
+- `/meters`
+- `/anomalies`
+- `/theft`
+- `/weather-impact`
+- `/forecast`
+- `/risk-scores`
+- `/consumer-segments`
+- `/efficiency`
+- `/drift-report`
+- `/predict`
+- `/ws/live`
+
+## 9. Frontend Dashboard: What Each Section Means
+
+The frontend is organized into HTML sections under `dashboard/sections/`. Each section displays data from the current API state.
+
+### 9.1 Overview
+
+File: `dashboard/sections/overview.html`
+
+This is the executive summary page.
+
+Main KPIs:
+
+- `Total Smart Meters`: unique meters in the historical dataset
+- `Active Meters`: meters present in the latest live tick
+- `Electricity Theft Alerts`: current-tick meters whose status is `Electricity Theft`
+- `Anomalies Detected`: current-tick anomaly count
+- `Power Wastage Alerts`: current-tick low-efficiency or wastage-flagged meters
+- `Current Electricity Demand`: latest aggregate `consumption_kwh`
+
+Main visuals:
+
+- `Live Demand Pulse`: recent total demand with anomaly and theft overlays
+- `Region-Wise Consumption`: current area-wise total consumption
+- `Risk Distribution Panel`: average area risk and critical meter count
+- `Operator Insights`: textual summary built from forecast, risk, efficiency, alerts, and drift
+
+### 9.2 Live Monitoring
+
+File: `dashboard/sections/live_monitoring.html`
+
+This section shows current operational state.
+
+Main KPIs:
+
+- `Current Load`
+- `24h Peak Load`
+- `Average Voltage`
+- `Peak Region`
+
+Main visuals:
+
+- electricity consumption time series
+- area-wise usage chart
+- peak load analysis
+- live smart-meter monitoring table
+
+### 9.3 Electricity Theft Detection
+
+File: `dashboard/sections/theft_detection.html`
+
+This section focuses only on current theft alerts.
+
+Main KPIs:
+
+- `Theft Alerts`: full current-tick theft count
+- `Average Risk Score`: mean `risk_score` of current theft alerts
+- `Average Theft Probability`: mean `theft_probability` of current theft alerts
+- `Critical Areas`: number of distinct areas with theft alerts whose `risk_score >= 80`
+
+Main visuals:
+
+- `Risk Distribution by Region`
+- `Theft Probability Surface`
+- `Electricity Theft Panel`
+
+The theft panel records usually show:
+
+- meter id
+- area
+- status
+- risk score
+- theft probability
+- anomaly score
+- explanation or reason
+
+### 9.4 Anomaly Detection
+
+File: `dashboard/sections/anomaly_detection.html`
+
+This section focuses on Isolation Forest outputs.
+
+Main KPIs:
+
+- `Anomaly Count`: full current-tick anomaly count
+- `Average Score`: mean `anomaly_score`
+- `Highest Score`: maximum `anomaly_score`
+- `Impacted Areas`: number of areas with anomalous readings
+
+Main visuals:
+
+- anomaly score distribution
+- suspicious meter scatter
+- anomaly investigation queue
+
+### 9.5 Demand Forecasting
+
+File: `dashboard/sections/demand_forecast.html`
+
+This section compares the forecasting models.
+
+Main KPIs:
+
+- `Next Hour Forecast`
+- `Next Day Forecast`
+- `Next Week Forecast`
+- `Current Demand`
+
+Main visuals:
+
+- `LSTM vs Transformer`
+- `Forecast Horizon Comparison`
+- `Model Summary`
+- `First 12 Forecast Steps`
+
+The backend also exposes an ensemble forecast that averages the LSTM and transformer horizon values.
+
+### 9.6 Energy Efficiency Analytics
+
+File: `dashboard/sections/energy_efficiency.html`
+
+This section shows wastage and operational inefficiency.
+
+Main KPIs:
+
+- `Low-Efficiency Meters`: meters flagged with low efficiency or wastage
+- `Average Efficiency`: mean `efficiency_score`
+- `Estimated Losses`: estimated energy losses in kWh
+- `Average PF Loss`: average power-factor loss indicator
+
+Main visuals:
+
+- efficiency histogram
+- region efficiency comparison
+- power wastage detection panel
+
+Important logic:
+
+- `wastage_flag` is set when wastage score is high or power factor is poor
+- this flag is used consistently across overview and efficiency sections
+
+### 9.7 Consumer Segmentation
+
+File: `dashboard/sections/consumer_segmentation.html`
+
+This section clusters customers by behavior.
+
+Main KPIs:
+
+- `Clustered Meters`
+- `Suspicious Cluster`
+- `Dominant Segment`
+- `Highest Avg Consumption`
+
+Main visuals:
+
+- consumer cluster scatter
+- segment share
+- average demand by segment
+- suspicious cluster members
+
+### 9.8 Bengaluru Heatmap
+
+File: `dashboard/sections/heatmap.html`
+
+This section shows geospatial distribution.
+
+Main KPIs:
+
+- `Mapped Meters`
+- `Theft Incidents`
+- `Anomaly Hotspots`
+- `Active Areas`
+
+Main visuals:
+
+- interactive Bengaluru map with:
+  - current meter markers
+  - theft rings
+  - anomaly heat overlays
+- hotspot summary table by area
+- link to the generated Folium heatmap `dashboard/theft_heatmap.html`
+
+### 9.9 Weather Impact Analytics
+
+File: `dashboard/sections/weather_impact.html`
+
+This section links weather to demand and wastage.
+
+Main KPIs:
+
+- `Average Temperature`
+- `Average Humidity`
+- `Rain-Affected Areas`
+- `Weather-Sensitive Area`
+
+Main visuals:
+
+- temperature vs consumption scatter
+- weather band demand
+- area weather vs demand
+- live weather summary
+
+### 9.10 Alert Center
+
+File: `dashboard/sections/alerts.html`
+
+This page combines multiple alert categories.
+
+Main KPIs:
+
+- `Critical Alerts`
+- `High Alerts`
+- `Medium Alerts`
+- `Drift Status`
+
+Alerts can be built from:
+
+- theft risk
+- anomaly events
+- efficiency/wastage warnings
+- data drift warnings
+
+### 9.11 Reports & Insights
+
+File: `dashboard/sections/reports.html`
+
+This page summarizes generated artifacts and current operations.
+
+Main KPIs:
+
+- `Theft Incidents`
+- `Efficiency Watch`
+- `Drift Watch`
+- `Next Day Demand`
+
+Downloadable artifacts include:
+
+- daily PDF report
+- drift report JSON
+- Bengaluru heatmap
+- sample API output
+
+## 10. Files And Modules
+
+Important project files:
+
+- [`run_project.py`](run_project.py): dataset generation and model training entry point
+- [`api/main.py`](api/main.py): FastAPI app and runtime simulation
+- [`src/data_generator.py`](src/data_generator.py): synthetic data generation
+- [`src/preprocess.py`](src/preprocess.py): cleaning and snapshot helpers
+- [`src/train_models.py`](src/train_models.py): training pipeline
+- [`src/theft_detector.py`](src/theft_detector.py): theft scoring
+- [`src/detect_anomaly.py`](src/detect_anomaly.py): anomaly scoring
+- [`src/demand_forecasting.py`](src/demand_forecasting.py): LSTM forecasting
+- [`src/transformer_forecasting.py`](src/transformer_forecasting.py): transformer forecasting
+- [`src/risk_scoring.py`](src/risk_scoring.py): composite risk scoring
+- [`src/energy_efficiency.py`](src/energy_efficiency.py): efficiency and loss metrics
+- [`src/consumer_segmentation.py`](src/consumer_segmentation.py): segmentation
+- [`src/data_drift_monitor.py`](src/data_drift_monitor.py): drift detection
+- [`src/explainable_ai.py`](src/explainable_ai.py): explanation layer
+- [`src/spatial_analysis.py`](src/spatial_analysis.py): heatmap generation
+- [`src/report_generator.py`](src/report_generator.py): PDF reporting
+- [`run.md`](run.md): current step-by-step run commands
+
+## 11. CLI Parameters
+
+The main command-line options in [`run_project.py`](run_project.py) are:
+
+- `--full-scale`: generate a 1000-meter, 1-year dataset
+- `--num-meters`: override meter count
+- `--days`: override number of simulated days
+- `--skip-training`: generate data only
+- `--forecast-epochs`: set LSTM training epochs
+- `--skip-sample-export`: skip sample API output generation
+- `--skip-report`: skip PDF report generation
+- `--start-api`: start FastAPI after bootstrapping
+- `--optimize-models`: run Optuna-based optimization before training
+- `--optimization-trials`: number of optimization trials
+
+## 12. Runtime Environment Variables
+
+Important environment variables used by the API:
+
+- `SMARTGRID_FULL_SCALE`
+  - `1` enables full-scale generation config
+- `SMARTGRID_UPDATE_INTERVAL`
+  - controls live simulation refresh interval in seconds
+- `SMARTGRID_ENABLE_ALERTS`
+  - `1` enables external alert dispatch simulation
+
+## 13. How To Run
+
+Use the commands in [`run.md`](run.md). The current project setup uses separate commands for backend and frontend.
+
+Typical order:
+
+1. install dependencies
+2. generate data and train models with `run_project.py`
+3. start backend with `uvicorn`
+4. start frontend static server from `dashboard/`
+
+## 14. Outputs Generated By The Project
+
+The project can generate:
+
+- trained model artifacts in `models/`
+- generated datasets in `dataset/` and `data/processed/`
+- SQLite runtime tables in `database/meter_data.db`
 - `reports/daily_energy_report.pdf`
 - `reports/drift_report.json`
+- `dashboard/theft_heatmap.html`
+- sample API responses in `sample_outputs/`
 
-## Testing
+## 15. Presentation Summary
 
-Run the test suite with:
+If you need a short explanation during presentation:
 
-```bash
-pytest
-```
+- the project creates synthetic Bengaluru smart-meter data with weather and theft scenarios
+- Isolation Forest detects unusual meter behavior
+- Random Forest and XGBoost estimate theft probability
+- risk scoring combines theft, anomaly, and operational stress into one severity score
+- LSTM and transformer models forecast electricity demand
+- the FastAPI backend simulates live incoming ticks
+- the frontend dashboard explains the current grid state through KPIs, charts, alerts, maps, and reports
 
-The tests cover:
-
-- Bengaluru meter bounds
-- Preprocessing behavior
-- Feature engineering
-- LSTM forecast fallback behavior
-- Transformer forecast pipeline behavior
-- Risk scoring
-- Consumer clustering
-- Energy efficiency scoring
-- API health endpoint
-- Sample output export
-
-## Practical Notes
-
-- The project is designed to run in reduced mode when optional heavy libraries are not installed.
-- PyTorch, Evidently, and Optuna are optional and are activated by `requirements-advanced.txt`.
-- If those advanced packages are absent, the project still runs end to end using deterministic fallbacks.
-- OpenWeather is optional. Synthetic Bengaluru weather is used when no API key is configured.
-
-## Recommended First Run
-
-Use this exact order:
-
-1. `pip install -r requirements.txt`
-2. `pip install -r requirements-test.txt`
-3. `python run_project.py`
-4. `pytest`
-5. `uvicorn api.main:app --reload`
-6. Open `dashboard/index.html`
-
-If you want the container path:
-
-1. `docker compose up --build`
-2. Open `http://127.0.0.1:8080`
-
-## Summary
-
-The platform now combines:
-
-- Isolation Forest for anomaly detection
-- Random Forest and XGBoost for theft scoring
-- Risk scoring for operational prioritization
-- KMeans and DBSCAN for consumer segmentation
-- Efficiency scoring for wastage analysis
-- LSTM and Transformer forecasting for demand prediction
-- Evidently-style drift checks for distribution monitoring
-- Optuna-based optimization for model tuning
-- SHAP for explainable AI
-
-That mix is intentional. Smart-grid monitoring requires anomaly detection, supervised theft scoring, temporal forecasting, and explainability at the same time.
-
-## Verified Windows PowerShell Command Order
-
-These commands were verified on March 13, 2026 in PowerShell.
-
-If `python` is already available on your PATH, replace `& $PYTHON` with `python`.
-If `python` is not available on your PATH, use the full interpreter path:
-
-```powershell
-$PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python310\python.exe"
-```
-
-Run the project in this order:
-
-```powershell
-Copy-Item .env.example .env
-& $PYTHON -m pip install -r requirements.txt
-& $PYTHON -m pip install -r requirements-test.txt
-& $PYTHON run_project.py
-& $PYTHON -m pytest
-& $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8000
-```
-
-Optional checks after the API starts:
-
-```powershell
-Invoke-WebRequest http://127.0.0.1:8000/health -UseBasicParsing
-```
-
-Then open the dashboard file in your browser:
-
-```powershell
-Start-Process .\dashboard\index.html
-```
