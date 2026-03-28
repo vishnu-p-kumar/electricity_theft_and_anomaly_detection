@@ -25,6 +25,11 @@ def build_theft_heatmap(dataframe: pd.DataFrame, output_path: str | Path | None 
     dashboard_output.parent.mkdir(parents=True, exist_ok=True)
 
     theft_frame = dataframe.copy()
+    if "timestamp" in theft_frame.columns and not theft_frame.empty:
+        theft_frame["timestamp"] = pd.to_datetime(theft_frame["timestamp"], errors="coerce")
+        latest_timestamp = theft_frame["timestamp"].max()
+        if pd.notna(latest_timestamp):
+            theft_frame = theft_frame.loc[theft_frame["timestamp"] == latest_timestamp].copy()
     if "status" in theft_frame:
         theft_frame = theft_frame.loc[theft_frame["status"] == "Electricity Theft"]
     elif "theft_probability" in theft_frame:

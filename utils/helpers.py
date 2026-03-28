@@ -163,7 +163,7 @@ def generation_config(full_scale: bool = False) -> dict[str, Any]:
         "chunk_size": 45,
         "sample_rows": 45000,
         "simulation_days": 10,
-        "simulation_meter_limit": 60,
+        "simulation_meter_limit": 120,
         "seed": 42,
     }
 

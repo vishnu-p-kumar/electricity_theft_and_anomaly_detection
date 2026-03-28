@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, WebSocket
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -136,6 +137,11 @@ class SmartGridRuntime:
         self.weather_service = WeatherService()
         self.lock = Lock()
         self.update_interval = int(os.getenv("SMARTGRID_UPDATE_INTERVAL", "4"))
+        self.demo_mode = os.getenv("SMARTGRID_DEMO_MODE", "0") == "1"
+        self.enable_periodic_reports = os.getenv(
+            "SMARTGRID_ENABLE_PERIODIC_REPORTS",
+            "0" if self.demo_mode else "1",
+        ) == "1"
         self.simulation_source = pd.DataFrame()
         self.historical_frame = pd.DataFrame()
         self.latest_predictions = pd.DataFrame()
@@ -278,8 +284,8 @@ class SmartGridRuntime:
             if forecast_frames:
                 dataframe_to_sqlite(pd.concat(forecast_frames, ignore_index=True), "forecast_snapshots")
             if self.cursor % 3 == 0:
-                build_theft_heatmap(recent)
-            if self.cursor % 6 == 0:
+                build_theft_heatmap(self.latest_predictions)
+            if self.enable_periodic_reports and self.cursor % 6 == 0:
                 generate_daily_report(recent, forecast=self.cached_forecast)
 
         self.cursor = (self.cursor + 1) % len(self.timeline)
@@ -516,6 +522,8 @@ class SmartGridRuntime:
             "timestamp": pd.Timestamp.utcnow().tz_localize(None).isoformat(),
             "current_tick": self.current_timestamp.isoformat() if self.current_timestamp is not None else None,
             "websocket_clients": len(self.ws_clients),
+            "demo_mode": self.demo_mode,
+            "periodic_reports_enabled": self.enable_periodic_reports,
             "artifacts": artifacts,
         }
 
@@ -636,6 +644,28 @@ def get_efficiency(limit: int = 20) -> dict[str, Any]:
 @app.get("/drift-report")
 def get_drift_report() -> dict[str, Any]:
     return runtime.drift_payload()
+
+
+@app.get("/artifacts/daily-report")
+def get_daily_report_artifact() -> FileResponse:
+    return FileResponse(runtime.paths.daily_report, filename="daily_energy_report.pdf", media_type="application/pdf")
+
+
+@app.get("/artifacts/drift-report")
+def get_drift_report_artifact() -> FileResponse:
+    return FileResponse(runtime.paths.drift_report, filename="drift_report.json", media_type="application/json")
+
+
+@app.get("/artifacts/sample-overview")
+def get_sample_overview_artifact() -> FileResponse:
+    sample_output = runtime.paths.root / "sample_outputs" / "overview_response.json"
+    return FileResponse(sample_output, filename="overview_response.json", media_type="application/json")
+
+
+@app.get("/artifacts/heatmap")
+def get_heatmap_artifact() -> FileResponse:
+    dashboard_heatmap = runtime.paths.dashboard_dir / "theft_heatmap.html"
+    return FileResponse(dashboard_heatmap, filename="theft_heatmap.html", media_type="text/html")
 
 
 @app.post("/predict")

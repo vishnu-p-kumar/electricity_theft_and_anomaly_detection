@@ -78,6 +78,13 @@ Run the FastAPI server:
 & $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
+For demo/presentation mode, disable periodic PDF generation in the live backend:
+
+```powershell
+$env:SMARTGRID_DEMO_MODE = "1"
+& $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
 Backend URL:
 
 ```text

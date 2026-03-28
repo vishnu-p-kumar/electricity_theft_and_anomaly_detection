@@ -31,7 +31,7 @@
           <p>Operational summaries, downloadable artifacts, and model-backed insights for daily analysis.</p>
         </div>
         <div class="section-header-actions">
-          <a class="report-link" href="../../reports/daily_energy_report.pdf" target="_blank" rel="noreferrer">
+          <a class="report-link" id="reportDailyPdfLink" href="#" target="_blank" rel="noreferrer">
             <i class="bi bi-file-earmark-pdf"></i>
             Daily PDF Report
           </a>
@@ -84,19 +84,19 @@
           <h3>Downloadable Artifacts</h3>
           <p>Generated outputs available to operators and reviewers.</p>
           <div class="report-links">
-            <a class="report-link" href="../../reports/daily_energy_report.pdf" target="_blank" rel="noreferrer">
+            <a class="report-link" id="reportDailyEnergyLink" href="#" target="_blank" rel="noreferrer">
               <i class="bi bi-file-earmark-pdf"></i>
               Daily Energy Report
             </a>
-            <a class="report-link" href="../../reports/drift_report.json" target="_blank" rel="noreferrer">
+            <a class="report-link" id="reportDriftJsonLink" href="#" target="_blank" rel="noreferrer">
               <i class="bi bi-filetype-json"></i>
               Drift Report JSON
             </a>
-            <a class="report-link" href="../theft_heatmap.html" target="_blank" rel="noreferrer">
+            <a class="report-link" id="reportHeatmapLink" href="#" target="_blank" rel="noreferrer">
               <i class="bi bi-geo-alt"></i>
               Bengaluru Heatmap
             </a>
-            <a class="report-link" href="../../sample_outputs/overview_response.json" target="_blank" rel="noreferrer">
+            <a class="report-link" id="reportSampleApiLink" href="#" target="_blank" rel="noreferrer">
               <i class="bi bi-braces"></i>
               Sample API Output
             </a>
@@ -110,6 +110,21 @@
     <script src="../components/charts.js"></script>
     <script>
       (function () {
+        function setArtifactLink(id, path) {
+          const element = document.getElementById(id);
+          if (element) {
+            element.href = `${SmartGridDashboard.getApiBase()}${path}`;
+          }
+        }
+
+        function updateArtifactLinks() {
+          setArtifactLink("reportDailyPdfLink", "/artifacts/daily-report");
+          setArtifactLink("reportDailyEnergyLink", "/artifacts/daily-report");
+          setArtifactLink("reportDriftJsonLink", "/artifacts/drift-report");
+          setArtifactLink("reportHeatmapLink", "/artifacts/heatmap");
+          setArtifactLink("reportSampleApiLink", "/artifacts/sample-overview");
+        }
+
         function metric(id, value) {
           const element = document.getElementById(id);
           if (element) {
@@ -203,6 +218,7 @@
         }
 
         async function refresh() {
+          updateArtifactLinks();
           const [overview, forecast, drift, theft, efficiency] = await Promise.all([
             SmartGridDashboard.fetchJson("/overview"),
             SmartGridDashboard.fetchJson("/forecast"),
