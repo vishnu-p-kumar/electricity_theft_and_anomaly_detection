@@ -1,29 +1,29 @@
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1774535430.247024   10144 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1774686239.305276   19112 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1774535435.924104   10144 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-INFO:     Started server process [2520]
+I0000 00:00:1774686244.745245   19112 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+INFO:     Started server process [12532]
 INFO:     Waiting for application startup.
-I0000 00:00:1774535447.839531   10144 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+I0000 00:00:1774686255.706664   19112 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:61756 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:51268 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:64037 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:63133 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:60312 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:61182 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:60804 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:60564 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:51445 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:61734 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:63476 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:50799 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:58456 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:51865 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:65104 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:59568 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
 INFO:     connection closed
 INFO:     connection closed
@@ -33,8 +33,24 @@ INFO:     connection closed
 INFO:     connection closed
 INFO:     connection closed
 INFO:     connection closed
+INFO:     127.0.0.1:49749 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:53413 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:50222 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:59027 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:56556 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:53976 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:55308 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:49328 - "WebSocket /ws/live" [accepted]
+INFO:     connection open
 forrtl: error (200): program aborting due to window-CLOSE event
 Image              PC                Routine            Line        Source             
-KERNELBASE.dll     00007FFE8D439DED  Unknown               Unknown  Unknown
-KERNEL32.DLL       00007FFE8EA4E8D7  Unknown               Unknown  Unknown
-ntdll.dll          00007FFE90AEC48C  Unknown               Unknown  Unknown
+KERNELBASE.dll     00007FFA93A19DED  Unknown               Unknown  Unknown
+KERNEL32.DLL       00007FFA9559E8D7  Unknown               Unknown  Unknown
+ntdll.dll          00007FFA96FAC48C  Unknown               Unknown  Unknown
