@@ -158,12 +158,12 @@ def generation_config(full_scale: bool = False) -> dict[str, Any]:
             "seed": 42,
         }
     return {
-        "num_meters": 180,
+        "num_meters": 500,
         "days": 60,
         "chunk_size": 45,
         "sample_rows": 45000,
         "simulation_days": 10,
-        "simulation_meter_limit": 120,
+        "simulation_meter_limit": 425,
         "seed": 42,
     }
 

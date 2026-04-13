@@ -5,7 +5,7 @@ import argparse
 from src.data_generator import generate_smart_meter_data
 from src.energy_efficiency import calculate_efficiency_metrics
 from src.model_optimizer import optimize_detection_models
-from src.preprocess import load_dataset
+from src.preprocess import limit_theft_alerts, load_dataset
 from src.report_generator import generate_daily_report
 from src.risk_scoring import score_meter_risk
 from src.sample_outputs import export_sample_outputs
@@ -58,7 +58,7 @@ def main() -> None:
         print("Training summary:", summary["classification"])
 
         live_frame = load_dataset(paths.live_dataset)
-        predicted = calculate_efficiency_metrics(score_meter_risk(classify_meter_events(live_frame)))
+        predicted = calculate_efficiency_metrics(score_meter_risk(limit_theft_alerts(classify_meter_events(live_frame), max_alerts=2)))
         heatmap_path = build_theft_heatmap(predicted)
         if not args.skip_sample_export:
             sample_output_dir = export_sample_outputs(predicted, forecast=summary.get("forecasting", {}))

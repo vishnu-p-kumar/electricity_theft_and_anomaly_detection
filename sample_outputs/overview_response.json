@@ -1,8 +1,8 @@
 {
   "timestamp": "2026-03-12T18:00:00",
   "summary": {
-    "total_meters": 180,
-    "active_meters": 60,
+    "total_meters": 500,
+    "active_meters": 425,
     "anomalies": 5,
     "theft": 2,
     "wastage": 4
@@ -50,4 +50,3 @@
     "model_type": "baseline"
   }
 }
-

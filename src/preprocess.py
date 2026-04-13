@@ -100,6 +100,38 @@ def build_overview_snapshot(dataframe: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def limit_theft_alerts(dataframe: pd.DataFrame, max_alerts: int = 2) -> pd.DataFrame:
+    frame = dataframe.copy()
+    if frame.empty or "status" not in frame.columns or max_alerts < 0:
+        return frame
+
+    theft_mask = frame["status"] == "Electricity Theft"
+    theft_count = int(theft_mask.sum())
+    if theft_count <= max_alerts:
+        return frame
+
+    sort_columns = [column for column in ["theft_probability", "risk_score", "anomaly_score"] if column in frame.columns]
+    theft_frame = frame.loc[theft_mask].copy()
+    if sort_columns:
+        theft_frame = theft_frame.sort_values(sort_columns, ascending=False)
+    keep_indexes = set(theft_frame.head(max_alerts).index.tolist())
+
+    downgrade_mask = theft_mask & ~frame.index.isin(keep_indexes)
+    if "theft_probability" in frame.columns:
+        frame.loc[downgrade_mask, "theft_probability"] = pd.to_numeric(
+            frame.loc[downgrade_mask, "theft_probability"],
+            errors="coerce",
+        ).fillna(0.0).clip(upper=0.89)
+
+    anomaly_mask = pd.to_numeric(frame.get("is_anomaly", 0), errors="coerce").fillna(0).astype(int) == 1
+    wastage_mask = pd.to_numeric(frame.get("wastage_score", 0.0), errors="coerce").fillna(0.0) >= 0.35
+
+    frame.loc[downgrade_mask, "status"] = "Normal"
+    frame.loc[downgrade_mask & wastage_mask, "status"] = "Power Wastage"
+    frame.loc[downgrade_mask & anomaly_mask, "status"] = "Anomaly"
+    return frame
+
+
 def aggregate_weather_impact(dataframe: pd.DataFrame) -> pd.DataFrame:
     if dataframe.empty:
         return pd.DataFrame(columns=["temperature_band", "avg_consumption", "avg_wastage", "avg_humidity"])

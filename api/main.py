@@ -24,6 +24,7 @@ from src.preprocess import (
     aggregate_region_consumption,
     aggregate_weather_impact,
     build_overview_snapshot,
+    limit_theft_alerts,
     load_dataset,
     load_training_dataset,
     preprocess_frame,
@@ -223,8 +224,22 @@ class SmartGridRuntime:
         full_scale = os.getenv("SMARTGRID_FULL_SCALE", "0") == "1"
         config = generation_config(full_scale=full_scale)
         sample_path = self.paths.data_processed / "smart_meter_sample.csv"
+        needs_regeneration = (
+            not self.paths.dataset.exists()
+            or not self.paths.live_dataset.exists()
+            or not sample_path.exists()
+            or not self.paths.meter_catalog.exists()
+        )
+        if not needs_regeneration:
+            with suppress(Exception):
+                meter_catalog = pd.read_csv(self.paths.meter_catalog, usecols=["meter_id"])
+                live_catalog = pd.read_csv(self.paths.live_dataset, usecols=["meter_id"])
+                needs_regeneration = (
+                    int(meter_catalog["meter_id"].nunique()) != int(config["num_meters"])
+                    or int(live_catalog["meter_id"].nunique()) != int(config["simulation_meter_limit"])
+                )
 
-        if not self.paths.dataset.exists() or not self.paths.live_dataset.exists() or not sample_path.exists():
+        if needs_regeneration:
             generate_smart_meter_data(**config)
 
         if not all(
@@ -278,6 +293,7 @@ class SmartGridRuntime:
         predictions = _ensure_visible_theft_candidate(classify_meter_events(current_frame))
         self._capture_sticky_theft_meter(predictions)
         predictions = self._apply_sticky_theft_meter(predictions)
+        predictions = limit_theft_alerts(predictions, max_alerts=2)
         predictions = predictions.assign(
             _sticky_theft_priority=_sticky_theft_sort_key(predictions, self.sticky_theft_meter_id)
         ).sort_values(
