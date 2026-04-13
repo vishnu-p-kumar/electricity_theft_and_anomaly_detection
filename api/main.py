@@ -36,7 +36,7 @@ from src.theft_detector import classify_meter_events
 from src.train_models import train_all_models
 from src.transformer_forecasting import forecast_transformer_horizons
 from src.weather_api import WeatherService
-from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, records_for_json, to_builtin
+from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, load_json, records_for_json, to_builtin
 
 
 class MeterReading(BaseModel):
@@ -138,6 +138,22 @@ def _sticky_theft_sort_key(frame: pd.DataFrame, meter_id: str | None) -> pd.Seri
     return (frame["meter_id"].astype(str) == str(meter_id)).astype(int)
 
 
+def _prioritize_sticky_meter(
+    frame: pd.DataFrame,
+    meter_id: str | None,
+    sort_columns: list[str],
+    ascending: list[bool] | None = None,
+) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+
+    ordered = frame.copy()
+    ordered["_sticky_theft_priority"] = _sticky_theft_sort_key(ordered, meter_id)
+    sort_order = ["_sticky_theft_priority", *sort_columns]
+    direction = [False, *(ascending if ascending is not None else [False] * len(sort_columns))]
+    return ordered.sort_values(by=sort_order, ascending=direction).drop(columns="_sticky_theft_priority")
+
+
 class SmartGridRuntime:
     def __init__(self) -> None:
         self.paths = ensure_project_dirs()
@@ -234,9 +250,11 @@ class SmartGridRuntime:
             with suppress(Exception):
                 meter_catalog = pd.read_csv(self.paths.meter_catalog, usecols=["meter_id"])
                 live_catalog = pd.read_csv(self.paths.live_dataset, usecols=["meter_id"])
+                generation_summary = load_json(self.paths.data_processed / "generation_summary.json", default={}) or {}
                 needs_regeneration = (
                     int(meter_catalog["meter_id"].nunique()) != int(config["num_meters"])
                     or int(live_catalog["meter_id"].nunique()) != int(config["simulation_meter_limit"])
+                    or not generation_summary.get("live_theft_meter_ids")
                 )
 
         if needs_regeneration:
@@ -293,13 +311,12 @@ class SmartGridRuntime:
         predictions = _ensure_visible_theft_candidate(classify_meter_events(current_frame))
         self._capture_sticky_theft_meter(predictions)
         predictions = self._apply_sticky_theft_meter(predictions)
-        predictions = limit_theft_alerts(predictions, max_alerts=2)
-        predictions = predictions.assign(
-            _sticky_theft_priority=_sticky_theft_sort_key(predictions, self.sticky_theft_meter_id)
-        ).sort_values(
-            by=["_sticky_theft_priority", "theft_probability", "anomaly_score"],
-            ascending=[False, False, False],
-        ).drop(columns="_sticky_theft_priority")
+        predictions = limit_theft_alerts(predictions, max_alerts=2, preferred_meter_id=self.sticky_theft_meter_id)
+        predictions = _prioritize_sticky_meter(
+            predictions,
+            self.sticky_theft_meter_id,
+            sort_columns=["theft_probability", "anomaly_score"],
+        )
         predictions = calculate_efficiency_metrics(score_meter_risk(predictions)).reset_index(drop=True)
 
         previous_recent = self.recent_predictions()
@@ -481,12 +498,11 @@ class SmartGridRuntime:
         with self.lock:
             latest = self.latest_predictions.copy()
         theft_frame = latest.loc[latest["status"] == "Electricity Theft"].copy()
-        theft_records = (
-            theft_frame
-            .sort_values(["risk_score", "theft_probability"], ascending=False)
-            .head(limit)
-            .copy()
-        )
+        theft_records = _prioritize_sticky_meter(
+            theft_frame,
+            self.sticky_theft_meter_id,
+            sort_columns=["risk_score", "theft_probability"],
+        ).head(limit).copy()
         reasons: list[str] = []
         for _, row in theft_records.iterrows():
             explanation = explain_prediction(pd.DataFrame([row]))

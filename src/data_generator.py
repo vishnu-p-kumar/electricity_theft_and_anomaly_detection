@@ -38,6 +38,12 @@ class MeterProfile:
     usage_profile: str
 
 
+@dataclass(frozen=True)
+class LiveTheftProfile:
+    theft_type: str
+    theft_probability: float
+
+
 def build_meter_catalog(num_meters: int, seed: int = 42) -> pd.DataFrame:
     seed_everything(seed)
     rng = np.random.default_rng(seed)
@@ -103,11 +109,33 @@ def _theft_mask(rng: np.random.Generator, size: int, hour: np.ndarray, theft_typ
     return window
 
 
+def _build_live_theft_profiles(
+    live_meter_ids: list[str],
+    rng: np.random.Generator,
+    count: int = 2,
+) -> dict[str, LiveTheftProfile]:
+    if not live_meter_ids:
+        return {}
+
+    theft_count = min(len(live_meter_ids), max(1, count))
+    selected_meter_ids = rng.choice(np.array(live_meter_ids, dtype=object), size=theft_count, replace=False).tolist()
+    profiles: dict[str, LiveTheftProfile] = {}
+    for meter_id in selected_meter_ids:
+        profiles[str(meter_id)] = LiveTheftProfile(
+            theft_type=str(rng.choice(THEFT_TYPES)),
+            theft_probability=float(rng.uniform(0.88, 0.98)),
+        )
+    return profiles
+
+
 def simulate_meter_series(
     meter: MeterProfile,
     timestamps: pd.DatetimeIndex,
     weather: pd.DataFrame,
     rng: np.random.Generator,
+    live_theft_profile: LiveTheftProfile | None = None,
+    live_start: pd.Timestamp | None = None,
+    disable_random_theft: bool = False,
 ) -> pd.DataFrame:
     hour = timestamps.hour.to_numpy()
     day_of_week = timestamps.dayofweek.to_numpy()
@@ -132,10 +160,16 @@ def simulate_meter_series(
     theft_type = "none"
     theft_probability = 0.0
     theft_mask = np.zeros(len(timestamps), dtype=bool)
-    if rng.random() < 0.13:
+    if live_theft_profile is not None and live_start is not None:
+        theft_type = live_theft_profile.theft_type
+        theft_probability = live_theft_profile.theft_probability
+        theft_mask = timestamps >= live_start
+    elif not disable_random_theft and rng.random() < 0.13:
         theft_type = str(rng.choice(THEFT_TYPES))
         theft_mask = _theft_mask(rng, len(timestamps), hour, theft_type)
         theft_probability = float(rng.uniform(0.68, 0.98))
+
+    if theft_mask.any():
         if theft_type == "meter_bypass":
             reported_consumption[theft_mask] = actual_load[theft_mask] * rng.uniform(0.18, 0.45)
         elif theft_type == "abnormal_spikes":
@@ -148,7 +182,7 @@ def simulate_meter_series(
             hidden_load = rng.uniform(0.4, 1.2, theft_mask.sum())
             actual_load[theft_mask] = actual_load[theft_mask] + hidden_load
             reported_consumption[theft_mask] = np.maximum(actual_load[theft_mask] - hidden_load * 1.2, 0.12)
-        else:  # tampered_meter
+        elif theft_type == "tampered_meter":
             reported_consumption[theft_mask] = actual_load[theft_mask] * rng.uniform(0.35, 0.58)
 
     power_factor = np.clip(0.94 + np.random.normal(0, 0.025, len(timestamps)), 0.72, 0.99)
@@ -236,8 +270,10 @@ def generate_smart_meter_data(
 
     sampled_frames: list[pd.DataFrame] = []
     live_frames: list[pd.DataFrame] = []
-    live_meter_ids = set(meter_catalog["meter_id"].head(simulation_meter_limit).tolist())
+    live_meter_ids = meter_catalog["meter_id"].head(simulation_meter_limit).astype(str).tolist()
+    live_meter_id_set = set(live_meter_ids)
     live_start = timestamps.max() - pd.Timedelta(days=simulation_days)
+    live_theft_profiles = _build_live_theft_profiles(live_meter_ids, rng)
 
     catalog_records = [MeterProfile(**row) for row in meter_catalog.to_dict(orient="records")]
     for chunk_index, start in enumerate(range(0, len(catalog_records), chunk_size)):
@@ -246,9 +282,17 @@ def generate_smart_meter_data(
         chunk_frames: list[pd.DataFrame] = []
         for meter in chunk_records:
             weather = weather_lookup[meter.area]
-            meter_frame = simulate_meter_series(meter, timestamps, weather, rng)
+            meter_frame = simulate_meter_series(
+                meter,
+                timestamps,
+                weather,
+                rng,
+                live_theft_profile=live_theft_profiles.get(meter.meter_id),
+                live_start=live_start if meter.meter_id in live_meter_id_set else None,
+                disable_random_theft=meter.meter_id in live_meter_id_set and meter.meter_id not in live_theft_profiles,
+            )
             chunk_frames.append(meter_frame)
-            if meter.meter_id in live_meter_ids:
+            if meter.meter_id in live_meter_id_set:
                 live_frames.append(meter_frame.loc[meter_frame["timestamp"] >= live_start].copy())
 
         chunk_df = pd.concat(chunk_frames, ignore_index=True)
@@ -277,6 +321,7 @@ def generate_smart_meter_data(
         "records_written": int(num_meters * days * 24),
         "theft_rate_in_sample": float(sample_df["is_theft"].mean()),
         "areas": sorted(meter_catalog["area"].unique().tolist()),
+        "live_theft_meter_ids": sorted(live_theft_profiles.keys()),
     }
     save_json(summary, paths.data_processed / "generation_summary.json")
     return sample_df
@@ -284,4 +329,3 @@ def generate_smart_meter_data(
 
 if __name__ == "__main__":
     generate_smart_meter_data(**generation_config(full_scale=True))
-

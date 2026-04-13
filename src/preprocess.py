@@ -100,7 +100,7 @@ def build_overview_snapshot(dataframe: pd.DataFrame) -> dict[str, float]:
     }
 
 
-def limit_theft_alerts(dataframe: pd.DataFrame, max_alerts: int = 2) -> pd.DataFrame:
+def limit_theft_alerts(dataframe: pd.DataFrame, max_alerts: int = 2, preferred_meter_id: str | None = None) -> pd.DataFrame:
     frame = dataframe.copy()
     if frame.empty or "status" not in frame.columns or max_alerts < 0:
         return frame
@@ -115,6 +115,14 @@ def limit_theft_alerts(dataframe: pd.DataFrame, max_alerts: int = 2) -> pd.DataF
     if sort_columns:
         theft_frame = theft_frame.sort_values(sort_columns, ascending=False)
     keep_indexes = set(theft_frame.head(max_alerts).index.tolist())
+    if preferred_meter_id and "meter_id" in theft_frame.columns:
+        preferred_matches = theft_frame.loc[theft_frame["meter_id"].astype(str) == str(preferred_meter_id)]
+        if not preferred_matches.empty:
+            preferred_index = preferred_matches.index[0]
+            keep_indexes.add(preferred_index)
+            if len(keep_indexes) > max_alerts:
+                fallback_indexes = [index for index in theft_frame.index.tolist() if index != preferred_index]
+                keep_indexes = {preferred_index, *fallback_indexes[: max(0, max_alerts - 1)]}
 
     downgrade_mask = theft_mask & ~frame.index.isin(keep_indexes)
     if "theft_probability" in frame.columns:

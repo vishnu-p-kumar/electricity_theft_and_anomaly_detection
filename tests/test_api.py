@@ -293,6 +293,62 @@ def test_sticky_theft_sort_key_prioritises_locked_meter() -> None:
     assert ordered.iloc[0]["meter_id"] == "M1"
 
 
+def test_limit_theft_alerts_preserves_preferred_meter() -> None:
+    frame = pd.DataFrame(
+        [
+            {"meter_id": "M1", "status": "Electricity Theft", "theft_probability": 0.91, "anomaly_score": 0.2, "is_anomaly": 0, "wastage_score": 0.1},
+            {"meter_id": "M2", "status": "Electricity Theft", "theft_probability": 0.97, "anomaly_score": 0.7, "is_anomaly": 1, "wastage_score": 0.4},
+            {"meter_id": "M3", "status": "Electricity Theft", "theft_probability": 0.95, "anomaly_score": 0.5, "is_anomaly": 1, "wastage_score": 0.2},
+        ]
+    )
+
+    limited = api_main.limit_theft_alerts(frame, max_alerts=2, preferred_meter_id="M1")
+    kept_meters = set(limited.loc[limited["status"] == "Electricity Theft", "meter_id"].tolist())
+
+    assert kept_meters == {"M1", "M2"}
+
+
+def test_theft_payload_prioritises_sticky_meter(monkeypatch) -> None:
+    monkeypatch.setattr(api_main, "explain_prediction", lambda *_args, **_kwargs: {"summary": "test"})
+
+    runtime = api_main.SmartGridRuntime()
+    runtime.sticky_theft_meter_id = "M1"
+    runtime.latest_predictions = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "timestamp": "2026-03-12T02:00:00",
+                "area": "Whitefield",
+                "region": "Bengaluru",
+                "status": "Electricity Theft",
+                "is_anomaly": 0,
+                "anomaly_score": 0.31,
+                "theft_probability": 0.91,
+                "risk_score": 70.0,
+                "latitude": 12.97,
+                "longitude": 77.75,
+            },
+            {
+                "meter_id": "M2",
+                "timestamp": "2026-03-12T02:00:00",
+                "area": "Koramangala",
+                "region": "Bengaluru",
+                "status": "Electricity Theft",
+                "is_anomaly": 1,
+                "anomaly_score": 0.66,
+                "theft_probability": 0.96,
+                "risk_score": 92.0,
+                "latitude": 12.93,
+                "longitude": 77.62,
+            },
+        ]
+    )
+
+    theft = runtime.theft_payload(limit=10)
+
+    assert theft["records"][0]["meter_id"] == "M1"
+
+
 def test_register_client_unregisters_when_initial_snapshot_send_fails(monkeypatch) -> None:
     class DummySocket:
         async def accept(self) -> None:
