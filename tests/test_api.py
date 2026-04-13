@@ -4,6 +4,7 @@ import asyncio
 
 import pandas as pd
 from fastapi.testclient import TestClient
+from fastapi import WebSocketDisconnect
 
 from api import main as api_main
 from src.preprocess import build_overview_snapshot
@@ -211,10 +212,102 @@ def test_visible_theft_candidate_is_injected_only_when_needed() -> None:
     promoted = api_main._ensure_visible_theft_candidate(frame)
 
     assert int((promoted["status"] == "Electricity Theft").sum()) == 1
-    assert float(promoted.loc[promoted["status"] == "Electricity Theft", "theft_probability"].iloc[0]) >= 0.81
+    assert float(promoted.loc[promoted["status"] == "Electricity Theft", "theft_probability"].iloc[0]) >= 0.91
 
     existing = frame.copy()
     existing.loc[0, "status"] = "Electricity Theft"
     untouched = api_main._ensure_visible_theft_candidate(existing)
 
     assert int((untouched["status"] == "Electricity Theft").sum()) == 1
+
+
+def test_runtime_keeps_first_detected_theft_meter_sticky() -> None:
+    runtime = api_main.SmartGridRuntime()
+
+    first_tick = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "status": "Electricity Theft",
+                "theft_probability": 0.93,
+                "random_forest_probability": 0.9,
+                "xgboost_probability": 0.95,
+                "anomaly_score": 0.4,
+            },
+            {
+                "meter_id": "M2",
+                "status": "Normal",
+                "theft_probability": 0.2,
+                "random_forest_probability": 0.18,
+                "xgboost_probability": 0.22,
+                "anomaly_score": 0.3,
+            },
+        ]
+    )
+    runtime._capture_sticky_theft_meter(first_tick)
+
+    second_tick = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "status": "Normal",
+                "theft_probability": 0.12,
+                "random_forest_probability": 0.11,
+                "xgboost_probability": 0.14,
+                "anomaly_score": 0.18,
+            },
+            {
+                "meter_id": "M2",
+                "status": "Electricity Theft",
+                "theft_probability": 0.88,
+                "random_forest_probability": 0.82,
+                "xgboost_probability": 0.91,
+                "anomaly_score": 0.52,
+            },
+        ]
+    )
+
+    sticky = runtime._apply_sticky_theft_meter(second_tick)
+
+    sticky_row = sticky.loc[sticky["meter_id"] == "M1"].iloc[0]
+    assert runtime.sticky_theft_meter_id == "M1"
+    assert sticky_row["status"] == "Electricity Theft"
+    assert float(sticky_row["theft_probability"]) >= 0.91
+
+
+def test_sticky_theft_sort_key_prioritises_locked_meter() -> None:
+    frame = pd.DataFrame(
+        [
+            {"meter_id": "M1", "theft_probability": 0.81, "anomaly_score": 0.2},
+            {"meter_id": "M2", "theft_probability": 0.95, "anomaly_score": 0.7},
+        ]
+    )
+
+    sticky_key = api_main._sticky_theft_sort_key(frame, "M1")
+    ordered = (
+        frame.assign(_sticky_theft_priority=sticky_key)
+        .sort_values(by=["_sticky_theft_priority", "theft_probability", "anomaly_score"], ascending=[False, False, False])
+        .drop(columns="_sticky_theft_priority")
+    )
+
+    assert ordered.iloc[0]["meter_id"] == "M1"
+
+
+def test_register_client_unregisters_when_initial_snapshot_send_fails(monkeypatch) -> None:
+    class DummySocket:
+        async def accept(self) -> None:
+            return None
+
+        async def send_json(self, _payload) -> None:
+            raise WebSocketDisconnect(code=1006)
+
+    runtime = api_main.SmartGridRuntime()
+    monkeypatch.setattr(runtime, "snapshot_message", lambda: {"type": "live_tick"})
+    socket = DummySocket()
+
+    try:
+        asyncio.run(runtime.register_client(socket))  # type: ignore[arg-type]
+    except WebSocketDisconnect:
+        pass
+
+    assert socket not in runtime.ws_clients

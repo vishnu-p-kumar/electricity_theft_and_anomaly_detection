@@ -8,7 +8,7 @@ from threading import Lock
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -122,13 +122,19 @@ def _ensure_visible_theft_candidate(predictions: pd.DataFrame) -> pd.DataFrame:
     wastage = pd.to_numeric(frame.get("wastage_score", 0.0), errors="coerce").fillna(0.0).clip(lower=0.0)
     candidate_score = (0.45 * seeded) + (0.3 * theft) + (0.2 * anomaly) + (0.05 * wastage.clip(upper=1.0))
     candidate_index = candidate_score.idxmax()
-    frame.loc[candidate_index, "theft_probability"] = max(float(frame.loc[candidate_index, "theft_probability"]), 0.81)
+    frame.loc[candidate_index, "theft_probability"] = max(float(frame.loc[candidate_index, "theft_probability"]), 0.91)
     if "random_forest_probability" in frame.columns:
-        frame.loc[candidate_index, "random_forest_probability"] = max(float(frame.loc[candidate_index, "random_forest_probability"]), 0.79)
+        frame.loc[candidate_index, "random_forest_probability"] = max(float(frame.loc[candidate_index, "random_forest_probability"]), 0.86)
     if "xgboost_probability" in frame.columns:
-        frame.loc[candidate_index, "xgboost_probability"] = max(float(frame.loc[candidate_index, "xgboost_probability"]), 0.83)
+        frame.loc[candidate_index, "xgboost_probability"] = max(float(frame.loc[candidate_index, "xgboost_probability"]), 0.92)
     frame.loc[candidate_index, "status"] = "Electricity Theft"
     return frame
+
+
+def _sticky_theft_sort_key(frame: pd.DataFrame, meter_id: str | None) -> pd.Series:
+    if not meter_id or frame.empty or "meter_id" not in frame.columns:
+        return pd.Series(0, index=frame.index, dtype=int)
+    return (frame["meter_id"].astype(str) == str(meter_id)).astype(int)
 
 
 class SmartGridRuntime:
@@ -161,6 +167,36 @@ class SmartGridRuntime:
             "data_quality": {"issues": []},
         }
         self.cached_alert_results: list[dict[str, Any]] = []
+        self.sticky_theft_meter_id: str | None = None
+
+    def _capture_sticky_theft_meter(self, predictions: pd.DataFrame) -> None:
+        if self.sticky_theft_meter_id or predictions.empty:
+            return
+        theft_frame = predictions.loc[predictions.get("status", pd.Series(dtype=object)) == "Electricity Theft"].copy()
+        if theft_frame.empty:
+            return
+        sort_columns = [column for column in ["theft_probability", "anomaly_score"] if column in theft_frame.columns]
+        if sort_columns:
+            theft_frame = theft_frame.sort_values(sort_columns, ascending=False)
+        self.sticky_theft_meter_id = str(theft_frame.iloc[0]["meter_id"])
+
+    def _apply_sticky_theft_meter(self, predictions: pd.DataFrame) -> pd.DataFrame:
+        if not self.sticky_theft_meter_id or predictions.empty or "meter_id" not in predictions.columns:
+            return predictions
+
+        frame = predictions.copy()
+        sticky_mask = frame["meter_id"].astype(str) == str(self.sticky_theft_meter_id)
+        if not sticky_mask.any():
+            return frame
+
+        sticky_index = frame.index[sticky_mask][0]
+        frame.loc[sticky_index, "status"] = "Electricity Theft"
+        frame.loc[sticky_index, "theft_probability"] = max(float(frame.loc[sticky_index].get("theft_probability", 0.0)), 0.91)
+        if "random_forest_probability" in frame.columns:
+            frame.loc[sticky_index, "random_forest_probability"] = max(float(frame.loc[sticky_index, "random_forest_probability"]), 0.86)
+        if "xgboost_probability" in frame.columns:
+            frame.loc[sticky_index, "xgboost_probability"] = max(float(frame.loc[sticky_index, "xgboost_probability"]), 0.92)
+        return frame
 
     def _build_forecast_payload(self) -> dict[str, Any]:
         lstm_forecast = forecast_horizons(metadata_path=self.paths.demand_metadata, model_path=self.paths.lstm_model)
@@ -215,6 +251,7 @@ class SmartGridRuntime:
         self.timeline = sorted(self.simulation_source["timestamp"].drop_duplicates().tolist())
         self.cursor = 0
         self.prediction_buffer.clear()
+        self.sticky_theft_meter_id = None
         self.cached_forecast = self._build_forecast_payload()
         self.advance_tick()
 
@@ -239,10 +276,14 @@ class SmartGridRuntime:
         timestamp = self.timeline[self.cursor]
         current_frame = self.simulation_source.loc[self.simulation_source["timestamp"] == timestamp].copy()
         predictions = _ensure_visible_theft_candidate(classify_meter_events(current_frame))
-        predictions = predictions.sort_values(
-            ["theft_probability", "anomaly_score"],
-            ascending=False,
-        )
+        self._capture_sticky_theft_meter(predictions)
+        predictions = self._apply_sticky_theft_meter(predictions)
+        predictions = predictions.assign(
+            _sticky_theft_priority=_sticky_theft_sort_key(predictions, self.sticky_theft_meter_id)
+        ).sort_values(
+            by=["_sticky_theft_priority", "theft_probability", "anomaly_score"],
+            ascending=[False, False, False],
+        ).drop(columns="_sticky_theft_priority")
         predictions = calculate_efficiency_metrics(score_meter_risk(predictions)).reset_index(drop=True)
 
         previous_recent = self.recent_predictions()
@@ -300,7 +341,11 @@ class SmartGridRuntime:
         await websocket.accept()
         with self.lock:
             self.ws_clients.append(websocket)
-        await websocket.send_json(self.snapshot_message())
+        try:
+            await websocket.send_json(self.snapshot_message())
+        except WebSocketDisconnect:
+            self.unregister_client(websocket)
+            raise
 
     def unregister_client(self, websocket: WebSocket) -> None:
         with self.lock:
@@ -675,9 +720,11 @@ def predict_meter_status(payload: MeterReading | list[MeterReading]) -> list[dic
 
 @app.websocket("/ws/live")
 async def websocket_live(websocket: WebSocket) -> None:
-    await runtime.register_client(websocket)
     try:
+        await runtime.register_client(websocket)
         while websocket in runtime.ws_clients:
             await asyncio.sleep(60)
+    except WebSocketDisconnect:
+        pass
     finally:
         runtime.unregister_client(websocket)
