@@ -36,12 +36,86 @@ class MeterProfile:
     latitude: float
     longitude: float
     usage_profile: str
+    transformer_id: str = "T000"
+    pole_id: str = "P0000"
+    connected_meters: str = "[]"
 
 
 @dataclass(frozen=True)
 class LiveTheftProfile:
     theft_type: str
     theft_probability: float
+
+
+def build_pole_hierarchy(meter_catalog: pd.DataFrame, seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if meter_catalog.empty:
+        return meter_catalog.copy(), pd.DataFrame(columns=["transformer_id", "pole_id", "area", "meter_count", "connected_meters"])
+
+    catalog = meter_catalog.copy().reset_index(drop=True)
+    catalog["transformer_id"] = ""
+    catalog["pole_id"] = ""
+    pole_rows: list[dict[str, Any]] = []
+    transformer_counter = 1
+    pole_counter = 1
+    total_meters = len(catalog)
+    target_pole_count = max(1, min(total_meters, round(total_meters * 0.444)))
+
+    area_counts = catalog.groupby("area").size().sort_index()
+    raw_targets = (area_counts / max(total_meters, 1)) * target_pole_count
+    area_target_map = {area: max(1, int(np.floor(value))) for area, value in raw_targets.items()}
+    assigned_poles = sum(area_target_map.values())
+    if assigned_poles < target_pole_count:
+        remainders = sorted(
+            ((float(raw_targets[area]) - area_target_map[area], area) for area in area_counts.index),
+            reverse=True,
+        )
+        for _, area in remainders:
+            if assigned_poles >= target_pole_count:
+                break
+            if area_target_map[area] < int(area_counts[area]):
+                area_target_map[area] += 1
+                assigned_poles += 1
+    elif assigned_poles > target_pole_count:
+        removable = sorted(
+            ((area_target_map[area] - float(raw_targets[area]), area) for area in area_counts.index),
+            reverse=True,
+        )
+        for _, area in removable:
+            if assigned_poles <= target_pole_count:
+                break
+            if area_target_map[area] > 1:
+                area_target_map[area] -= 1
+                assigned_poles -= 1
+
+    for area, indexes in catalog.groupby("area").groups.items():
+        area_indexes = list(indexes)
+        transformer_id = f"T{transformer_counter:03d}"
+        transformer_counter += 1
+        pole_groups = np.array_split(np.array(area_indexes, dtype=int), min(area_target_map.get(area, 1), len(area_indexes)))
+
+        for pole_group in pole_groups:
+            pole_indexes = pole_group.tolist()
+            if not pole_indexes:
+                continue
+            pole_id = f"P{pole_counter:04d}"
+            pole_counter += 1
+            meter_ids = catalog.loc[pole_indexes, "meter_id"].astype(str).tolist()
+            catalog.loc[pole_indexes, "transformer_id"] = transformer_id
+            catalog.loc[pole_indexes, "pole_id"] = pole_id
+            pole_rows.append(
+                {
+                    "transformer_id": transformer_id,
+                    "pole_id": pole_id,
+                    "area": area,
+                    "meter_count": len(meter_ids),
+                    "connected_meters": "|".join(meter_ids),
+                }
+            )
+
+    pole_catalog = pd.DataFrame(pole_rows)
+    connected_lookup = pole_catalog.set_index("pole_id")["connected_meters"].to_dict()
+    catalog["connected_meters"] = catalog["pole_id"].map(connected_lookup).fillna("")
+    return catalog, pole_catalog
 
 
 def build_meter_catalog(num_meters: int, seed: int = 42) -> pd.DataFrame:
@@ -205,6 +279,9 @@ def simulate_meter_series(
             "timestamp": timestamps,
             "region": meter.region,
             "area": meter.area,
+            "transformer_id": meter.transformer_id,
+            "pole_id": meter.pole_id,
+            "connected_meters": meter.connected_meters,
             "latitude": meter.latitude,
             "longitude": meter.longitude,
             "voltage": np.round(voltage, 2),
@@ -258,7 +335,9 @@ def generate_smart_meter_data(
     )
 
     meter_catalog = build_meter_catalog(num_meters=num_meters, seed=seed)
+    meter_catalog, pole_catalog = build_pole_hierarchy(meter_catalog, seed=seed)
     meter_catalog.to_csv(paths.meter_catalog, index=False)
+    pole_catalog.to_csv(paths.pole_catalog, index=False)
 
     weather_service = WeatherService()
     weather_lookup = weather_service.area_weather_frame(timestamps)
@@ -321,6 +400,8 @@ def generate_smart_meter_data(
         "records_written": int(num_meters * days * 24),
         "theft_rate_in_sample": float(sample_df["is_theft"].mean()),
         "areas": sorted(meter_catalog["area"].unique().tolist()),
+        "transformers": int(meter_catalog["transformer_id"].nunique()),
+        "poles": int(meter_catalog["pole_id"].nunique()),
         "live_theft_meter_ids": sorted(live_theft_profiles.keys()),
     }
     save_json(summary, paths.data_processed / "generation_summary.json")

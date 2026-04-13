@@ -126,13 +126,14 @@
         }
 
         async function refresh() {
-          const [theft, anomalies, efficiency, drift] = await Promise.all([
+          const [theft, anomalies, efficiency, drift, pole] = await Promise.all([
             SmartGridDashboard.fetchJson("/theft?limit=40"),
             SmartGridDashboard.fetchJson("/anomalies?limit=40"),
             SmartGridDashboard.fetchJson("/efficiency?limit=40"),
             SmartGridDashboard.fetchJson("/drift-report"),
+            SmartGridDashboard.fetchJson("/api/pole-tamper-alerts?limit=40"),
           ]);
-          render({ theft, anomalies, efficiency, drift });
+          render({ theft, anomalies, efficiency, drift, pole });
         }
 
         SmartGridDashboard.setupSection({

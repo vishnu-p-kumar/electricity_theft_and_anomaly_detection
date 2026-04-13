@@ -1,4 +1,5 @@
 (function () {
+  const DASHBOARD_ASSET_VERSION = "2026-04-13-pole-monitoring-v2";
   const SECTIONS = {
     overview: { path: "./sections/overview.html", title: "Overview", subtitle: "System-wide KPIs, live demand, and smart-grid operational health." },
     live_monitoring: { path: "./sections/live_monitoring.html", title: "Live Monitoring", subtitle: "Realtime electricity usage, peak load shifts, and area demand trends." },
@@ -6,6 +7,7 @@
     anomaly_detection: { path: "./sections/anomaly_detection.html", title: "Anomaly Detection", subtitle: "Isolation Forest anomaly surfaces, suspicious outliers, and score distributions." },
     demand_forecast: { path: "./sections/demand_forecast.html", title: "Demand Forecasting", subtitle: "LSTM and Transformer demand projections for the next hour, day, and week." },
     energy_efficiency: { path: "./sections/energy_efficiency.html", title: "Energy Efficiency Analytics", subtitle: "Efficiency scores, wastage exposure, and power-factor performance by area." },
+    pole_monitoring: { path: "./sections/pole_monitoring.html", title: "Pole Monitoring", subtitle: "Pole energy balance, tamper probabilities, illegal connections, and transformer-to-pole mismatch tracking." },
     consumer_segmentation: { path: "./sections/consumer_segmentation.html", title: "Consumer Segmentation", subtitle: "Behavioral clustering across residential, commercial, industrial, and suspicious usage." },
     heatmap: { path: "./sections/heatmap.html", title: "Bengaluru Heatmap", subtitle: "Interactive theft and anomaly hotspots on a live geospatial control map." },
     weather_impact: { path: "./sections/weather_impact.html", title: "Weather Impact Analytics", subtitle: "Demand correlations against temperature, humidity, rainfall, and live weather shifts." },
@@ -65,6 +67,11 @@
     return document.querySelector(".frame-shell");
   }
 
+  function versionedPath(path) {
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}v=${encodeURIComponent(DASHBOARD_ASSET_VERSION)}`;
+  }
+
   function activeFrame() {
     return activeSectionKey ? frameRegistry.get(activeSectionKey) || null : null;
   }
@@ -86,16 +93,24 @@
   }
 
   function ensureFrame(sectionKey) {
+    const section = SECTIONS[sectionKey] || SECTIONS.overview;
+    const resolvedPath = versionedPath(section.path);
+
     if (frameRegistry.has(sectionKey)) {
-      return frameRegistry.get(sectionKey);
+      const existingFrame = frameRegistry.get(sectionKey);
+      if (existingFrame && existingFrame.dataset.sectionSrc !== resolvedPath) {
+        existingFrame.dataset.sectionSrc = resolvedPath;
+        existingFrame.src = resolvedPath;
+      }
+      return existingFrame;
     }
 
-    const section = SECTIONS[sectionKey] || SECTIONS.overview;
     const frame = document.createElement("iframe");
     frame.id = frameId(sectionKey);
     frame.className = "section-frame";
     frame.title = `${section.title} Section`;
-    frame.src = section.path;
+    frame.src = resolvedPath;
+    frame.dataset.sectionSrc = resolvedPath;
     frame.style.display = "none";
     frame.addEventListener("load", () => {
       sendConfigToFrame(frame);
@@ -125,6 +140,11 @@
     document.getElementById("sectionSubtitle").textContent = section.subtitle;
     activeSectionKey = sectionKey;
     const frame = ensureFrame(sectionKey);
+    const resolvedPath = versionedPath(section.path);
+    if (frame.dataset.sectionSrc !== resolvedPath) {
+      frame.dataset.sectionSrc = resolvedPath;
+      frame.src = resolvedPath;
+    }
     frameRegistry.forEach((frame, key) => {
       frame.style.display = key === sectionKey ? "block" : "none";
     });

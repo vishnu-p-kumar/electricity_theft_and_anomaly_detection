@@ -74,6 +74,7 @@ class ProjectPaths:
     dataset: Path
     live_dataset: Path
     meter_catalog: Path
+    pole_catalog: Path
     model_dir: Path
     isolation_forest: Path
     random_forest: Path
@@ -102,6 +103,7 @@ def project_paths() -> ProjectPaths:
         dataset=root / "dataset" / "smart_meter_data.csv",
         live_dataset=root / "data" / "processed" / "live_simulation.csv",
         meter_catalog=root / "data" / "processed" / "meter_catalog.csv",
+        pole_catalog=root / "data" / "processed" / "pole_catalog.csv",
         model_dir=root / "models",
         isolation_forest=root / "models" / "isolation_forest.pkl",
         random_forest=root / "models" / "random_forest.pkl",

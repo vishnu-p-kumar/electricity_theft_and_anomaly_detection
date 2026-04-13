@@ -37,6 +37,38 @@ def test_health_endpoint(monkeypatch) -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_pole_endpoints(monkeypatch) -> None:
+    monkeypatch.setattr(api_main.runtime, "bootstrap", lambda: None)
+    monkeypatch.setattr(api_main.runtime, "simulation_loop", _idle_loop)
+    monkeypatch.setattr(
+        api_main.runtime,
+        "pole_status_payload",
+        lambda limit=20: {"summary": {"pole_count": 2, "suspicious_poles": 1}, "records": [{"pole_id": "P0001"}][:limit], "timeline": []},
+    )
+    monkeypatch.setattr(
+        api_main.runtime,
+        "pole_tamper_alerts_payload",
+        lambda limit=20: {"count": 1, "records": [{"pole_id": "P0001", "message": "Pole P0001 energy mismatch detected."}][:limit]},
+    )
+    monkeypatch.setattr(
+        api_main.runtime,
+        "pole_energy_balance_payload",
+        lambda limit=120: {"records": [{"pole_id": "P0001", "energy_gap": 1.2}][:limit], "heatmap": [{"pole_id": "P0001"}]},
+    )
+
+    with TestClient(api_main.app) as client:
+        status_response = client.get("/api/pole-status")
+        alerts_response = client.get("/api/pole-tamper-alerts")
+        balance_response = client.get("/api/pole-energy-balance")
+
+    assert status_response.status_code == 200
+    assert status_response.json()["summary"]["suspicious_poles"] == 1
+    assert alerts_response.status_code == 200
+    assert alerts_response.json()["count"] == 1
+    assert balance_response.status_code == 200
+    assert balance_response.json()["heatmap"][0]["pole_id"] == "P0001"
+
+
 def test_overview_snapshot_uses_wastage_flag() -> None:
     frame = pd.DataFrame(
         [
@@ -367,3 +399,48 @@ def test_register_client_unregisters_when_initial_snapshot_send_fails(monkeypatc
         pass
 
     assert socket not in runtime.ws_clients
+
+
+def test_pole_payload_helpers_surface_latest_runtime_state() -> None:
+    runtime = api_main.SmartGridRuntime()
+    runtime.latest_pole_status = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-03-12T02:00:00",
+                "pole_id": "P0001",
+                "transformer_id": "T001",
+                "area": "Whitefield",
+                "supplied_energy": 14.2,
+                "meter_energy_sum": 10.3,
+                "loss_estimate": 0.4,
+                "energy_gap": 3.5,
+                "tamper_probability": 0.91,
+                "tamper_flag": 1,
+                "pole_event_type": "illegal_connection",
+            },
+            {
+                "timestamp": "2026-03-12T02:00:00",
+                "pole_id": "P0002",
+                "transformer_id": "T001",
+                "area": "Koramangala",
+                "supplied_energy": 9.4,
+                "meter_energy_sum": 8.8,
+                "loss_estimate": 0.3,
+                "energy_gap": 0.3,
+                "tamper_probability": 0.22,
+                "tamper_flag": 0,
+                "pole_event_type": "normal",
+            },
+        ]
+    )
+    runtime.recent_pole_status = runtime.latest_pole_status.copy()
+
+    status = runtime.pole_status_payload(limit=10)
+    alerts = runtime.pole_tamper_alerts_payload(limit=10)
+    balance = runtime.pole_energy_balance_payload(limit=10)
+
+    assert status["summary"]["pole_count"] == 2
+    assert status["summary"]["suspicious_poles"] == 1
+    assert alerts["count"] == 1
+    assert alerts["records"][0]["pole_id"] == "P0001"
+    assert balance["heatmap"][0]["pole_id"] in {"P0001", "P0002"}

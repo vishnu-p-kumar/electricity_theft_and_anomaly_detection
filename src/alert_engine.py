@@ -16,6 +16,21 @@ def build_alert_messages(dataframe: pd.DataFrame, limit: int = 5) -> list[dict[s
     ranked = dataframe.sort_values(sort_columns, ascending=False).head(limit) if sort_columns else dataframe.head(limit)
     alerts: list[dict[str, Any]] = []
     for _, row in ranked.iterrows():
+        is_pole_alert = bool(row.get("pole_id")) and not bool(row.get("meter_id"))
+        if is_pole_alert:
+            alerts.append(
+                {
+                    "title": "Pole Tamper Alert",
+                    "pole_id": row.get("pole_id"),
+                    "area": row.get("area"),
+                    "risk_score": round(float(row.get("tamper_probability", 0.0)) * 100.0, 2),
+                    "message": (
+                        f"Pole {row.get('pole_id')} energy mismatch detected in {row.get('area')}. "
+                        f"Possible illegal connection with tamper probability {float(row.get('tamper_probability', 0.0)):.2f}."
+                    ),
+                }
+            )
+            continue
         alerts.append(
             {
                 "title": "Electricity Theft Detected" if row.get("status") == "Electricity Theft" else "Smart Grid Risk Alert",

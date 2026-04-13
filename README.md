@@ -53,6 +53,7 @@ The project answers questions like:
 - Supervised theft classification with blended probabilities
 - Risk scoring and risk-level summaries
 - Energy efficiency and wastage estimation
+- Pole-level electricity tamper detection and illegal connection monitoring
 - LSTM and Transformer-based demand forecasting
 - Consumer segmentation for usage-pattern analysis
 - Drift monitoring between historical and recent windows
@@ -247,6 +248,9 @@ The data pipeline produces:
 - `data/processed/meter_catalog.csv`
   Static meter metadata including meter ID, area, latitude, longitude, and usage profile.
 
+- `data/processed/pole_catalog.csv`
+  Pole and transformer hierarchy linking each pole to its connected meters.
+
 - `data/processed/generation_summary.json`
   Summary of generation configuration and live theft meter IDs.
 
@@ -258,6 +262,9 @@ The core generated schema includes:
 - `timestamp`
 - `region`
 - `area`
+- `transformer_id`
+- `pole_id`
+- `connected_meters`
 - `latitude`
 - `longitude`
 - `voltage`
@@ -396,6 +403,20 @@ Purpose:
 - flag wastage-sensitive meters
 - estimate losses in kWh
 
+### 7.4 Pole Monitoring and Tamper Detection
+
+Files:
+
+- `src/pole_monitoring.py`
+- `src/pole_tamper_detector.py`
+
+Purpose:
+
+- simulate pole-level supply from meter-side load, technical losses, and hidden unmetered load
+- compare supplied energy against the sum of connected meter usage
+- detect pole imbalance, abnormal load spikes, and possible direct tapping from the pole
+- produce pole-level tamper probabilities and alertable events
+
 ### 7.5 Demand Forecasting
 
 Files:
@@ -520,6 +541,8 @@ The backend writes snapshots into `database/meter_data.db`, including tables suc
 - `efficiency_metrics`
 - `drift_reports`
 - `forecast_snapshots`
+- `pole_energy_data`
+- `pole_tamper_events`
 
 ### 8.4 Alert Integrations
 
@@ -532,6 +555,8 @@ Supported outbound providers:
 - Telegram bot API
 
 Alerts are only dispatched when `SMARTGRID_ENABLE_ALERTS=1`.
+
+Pole tamper alerts are also generated when a pole shows a sustained energy mismatch or suspected illegal connection.
 
 ## 9. Dashboard
 
@@ -577,6 +602,9 @@ Each HTML file under `dashboard/sections/` renders one analytics surface:
 - `consumer_segmentation.html`
   Segment mix, cluster summaries, and cluster member views.
 
+- `pole_monitoring.html`
+  Pole supply vs meter balance, suspicious poles, mismatch charts, and pole tamper alerts.
+
 - `heatmap.html`
   Theft hotspot map integration and area-based map summaries.
 
@@ -601,6 +629,7 @@ Common generated outputs:
 - `data/processed/smart_meter_sample.csv`
 - `data/processed/live_simulation.csv`
 - `data/processed/meter_catalog.csv`
+- `data/processed/pole_catalog.csv`
 - `data/processed/generation_summary.json`
 - `models/isolation_forest.pkl`
 - `models/random_forest.pkl`
@@ -831,6 +860,9 @@ Ports:
 - `GET /risk-scores`
 - `GET /consumer-segments`
 - `GET /efficiency`
+- `GET /api/pole-status`
+- `GET /api/pole-tamper-alerts`
+- `GET /api/pole-energy-balance`
 - `GET /drift-report`
 - `POST /predict`
 
@@ -932,6 +964,7 @@ Covered behavior includes:
 - sticky theft behavior in the runtime
 - stable live theft generation behavior
 - feature engineering outputs
+- pole hierarchy generation and pole tamper payloads
 - risk scoring and efficiency metrics
 - consumer clustering
 - forecast fallbacks and Transformer pipeline behavior
@@ -1009,3 +1042,13 @@ Make sure:
 ## 19. Short Presentation Summary
 
 This project simulates a Bengaluru smart-grid monitoring platform. It generates synthetic smart-meter data with weather, theft, anomaly, and wastage behavior; trains anomaly, theft, and forecasting models; replays the data as a live FastAPI stream; and visualizes the results in a dashboard. The system highlights suspected electricity theft, anomalies, energy inefficiency, demand forecasts, risk by area, weather impact, segmentation patterns, and drift in recent data.
+
+## Pole Monitoring Architecture
+
+The pole extension adds a hierarchy of `transformer -> pole -> meter` without replacing the existing meter-centric flow. During generation, each meter is assigned a `transformer_id`, a `pole_id`, and a `connected_meters` mapping. During live runtime, the backend aggregates current meter readings into pole-level supply snapshots, estimates technical losses, and injects simulated hidden load for direct pole tapping and abnormal pole spikes.
+
+Pole tampering is identified from the energy balance formula:
+
+`Energy supplied to pole - (sum of meter consumption + technical losses)`
+
+When that mismatch grows beyond the configured threshold, or when the gap and load pattern diverge from the pole's historical behavior, the pole is marked suspicious. The detector blends rule-based imbalance checks with an optional Isolation Forest score so the system can flag missing meter load, abnormal pole load growth, and likely illegal pole connections while keeping the original meter detection pipeline intact.

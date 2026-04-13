@@ -20,6 +20,8 @@ from src.data_generator import generate_smart_meter_data
 from src.demand_forecasting import forecast_horizons
 from src.energy_efficiency import calculate_efficiency_metrics, summarise_efficiency
 from src.explainable_ai import explain_prediction
+from src.pole_monitoring import simulate_pole_energy
+from src.pole_tamper_detector import detect_pole_tampering
 from src.preprocess import (
     aggregate_region_consumption,
     aggregate_weather_impact,
@@ -185,6 +187,10 @@ class SmartGridRuntime:
         }
         self.cached_alert_results: list[dict[str, Any]] = []
         self.sticky_theft_meter_id: str | None = None
+        self.pole_catalog = pd.DataFrame()
+        self.historical_pole_frame = pd.DataFrame()
+        self.latest_pole_status = pd.DataFrame()
+        self.recent_pole_status = pd.DataFrame()
 
     def _capture_sticky_theft_meter(self, predictions: pd.DataFrame) -> None:
         if self.sticky_theft_meter_id or predictions.empty:
@@ -245,6 +251,7 @@ class SmartGridRuntime:
             or not self.paths.live_dataset.exists()
             or not sample_path.exists()
             or not self.paths.meter_catalog.exists()
+            or not self.paths.pole_catalog.exists()
         )
         if not needs_regeneration:
             with suppress(Exception):
@@ -276,6 +283,10 @@ class SmartGridRuntime:
         if self.historical_frame.empty:
             self.historical_frame = load_dataset(self.paths.dataset, nrows=20000)
         dataframe_to_sqlite(self.historical_frame, "meter_readings")
+        self.pole_catalog = pd.read_csv(self.paths.pole_catalog) if self.paths.pole_catalog.exists() else pd.DataFrame()
+        self.historical_pole_frame = simulate_pole_energy(self.historical_frame, pole_catalog=self.pole_catalog)
+        if not self.historical_pole_frame.empty:
+            dataframe_to_sqlite(self.historical_pole_frame, "pole_energy_data")
 
         self.simulation_source = load_dataset(self.paths.live_dataset)
         if self.simulation_source.empty:
@@ -285,6 +296,8 @@ class SmartGridRuntime:
         self.cursor = 0
         self.prediction_buffer.clear()
         self.sticky_theft_meter_id = None
+        self.latest_pole_status = pd.DataFrame()
+        self.recent_pole_status = pd.DataFrame()
         self.cached_forecast = self._build_forecast_payload()
         self.advance_tick()
 
@@ -322,6 +335,13 @@ class SmartGridRuntime:
         previous_recent = self.recent_predictions()
         recent = pd.concat([previous_recent, predictions], ignore_index=True) if not previous_recent.empty else predictions.copy()
         recent = recent.tail(5000).reset_index(drop=True)
+        pole_status = detect_pole_tampering(
+            current_frame=simulate_pole_energy(predictions, pole_catalog=self.pole_catalog),
+            historical_frame=self.historical_pole_frame if not self.historical_pole_frame.empty else simulate_pole_energy(recent, pole_catalog=self.pole_catalog),
+        )
+        previous_poles = self.recent_pole_status.copy()
+        recent_poles = pd.concat([previous_poles, pole_status], ignore_index=True) if not previous_poles.empty else pole_status.copy()
+        recent_poles = recent_poles.tail(4000).reset_index(drop=True)
 
         forecast_payload = self._build_forecast_payload()
         segments = cluster_consumers(self._clustering_source(recent))
@@ -331,7 +351,16 @@ class SmartGridRuntime:
 
         alert_results: list[dict[str, Any]] = []
         if os.getenv("SMARTGRID_ENABLE_ALERTS", "0") == "1":
-            alert_results = dispatch_alerts(predictions.loc[predictions["risk_level"].isin(["High", "Critical"])], limit=5)
+            pole_alerts = pole_status.loc[pole_status["tamper_flag"] == 1, ["pole_id", "area", "tamper_probability"]].copy()
+            alert_frame = pd.concat(
+                [
+                    predictions.loc[predictions["risk_level"].isin(["High", "Critical"])],
+                    pole_alerts,
+                ],
+                ignore_index=True,
+                sort=False,
+            )
+            alert_results = dispatch_alerts(alert_frame, limit=5)
 
         with self.lock:
             self.current_timestamp = pd.Timestamp(timestamp)
@@ -341,6 +370,8 @@ class SmartGridRuntime:
             self.cached_segments = segments
             self.cached_drift_report = drift_report
             self.cached_alert_results = alert_results
+            self.latest_pole_status = pole_status
+            self.recent_pole_status = recent_poles
 
             dataframe_to_sqlite(self.latest_predictions, "live_predictions")
             dataframe_to_sqlite(recent, "recent_predictions")
@@ -348,6 +379,11 @@ class SmartGridRuntime:
             dataframe_to_sqlite(self.cached_segments, "consumer_segments")
             dataframe_to_sqlite(self.latest_predictions, "efficiency_metrics")
             dataframe_to_sqlite(_flatten_drift_report(self.cached_drift_report), "drift_reports")
+            dataframe_to_sqlite(recent_poles, "pole_energy_data")
+            dataframe_to_sqlite(
+                pole_status.loc[pole_status["tamper_flag"] == 1].reset_index(drop=True),
+                "pole_tamper_events",
+            )
 
             forecast_frames: list[pd.DataFrame] = []
             for model_name in ["lstm", "transformer"]:
@@ -396,6 +432,7 @@ class SmartGridRuntime:
             "efficiency": self.efficiency_payload(limit=10),
             "drift": self.drift_payload(),
             "forecast": self.forecast_payload(),
+            "pole": self.pole_status_payload(limit=12),
         })
 
     async def broadcast_snapshot(self) -> None:
@@ -567,6 +604,64 @@ class SmartGridRuntime:
             latest = self.latest_predictions.copy()
         return summarise_efficiency(latest, limit=limit)
 
+    def pole_status_payload(self, limit: int = 20) -> dict[str, Any]:
+        with self.lock:
+            latest = self.latest_pole_status.copy()
+            recent = self.recent_pole_status.copy()
+
+        if latest.empty:
+            return {"summary": {"pole_count": 0, "suspicious_poles": 0, "average_gap": 0.0, "max_tamper_probability": 0.0}, "records": [], "timeline": []}
+        suspicious = latest.loc[latest.get("tamper_flag", pd.Series(dtype=int)) == 1].copy()
+        pole_records = latest.sort_values(["tamper_flag", "tamper_probability", "energy_gap"], ascending=[False, False, False]).head(limit)
+        return {
+            "summary": {
+                "pole_count": int(latest["pole_id"].nunique()) if not latest.empty and "pole_id" in latest.columns else 0,
+                "suspicious_poles": int(suspicious["pole_id"].nunique()) if not suspicious.empty else 0,
+                "average_gap": round(float(latest["energy_gap"].mean()), 3) if not latest.empty else 0.0,
+                "max_tamper_probability": round(float(latest["tamper_probability"].max()), 4) if not latest.empty else 0.0,
+            },
+            "records": records_for_json(pole_records),
+            "timeline": records_for_json(recent.sort_values("timestamp").tail(120)),
+        }
+
+    def pole_tamper_alerts_payload(self, limit: int = 20) -> dict[str, Any]:
+        with self.lock:
+            latest = self.latest_pole_status.copy()
+        if latest.empty:
+            return {"count": 0, "records": []}
+        alerts = latest.loc[latest.get("tamper_flag", pd.Series(dtype=int)) == 1].copy()
+        alerts = alerts.sort_values(["tamper_probability", "energy_gap"], ascending=False).head(limit).copy()
+        if not alerts.empty:
+            alerts["message"] = alerts.apply(
+                lambda row: f"Pole {row['pole_id']} energy mismatch detected. Possible illegal connection.",
+                axis=1,
+            )
+        return {
+            "count": int(len(latest.loc[latest.get("tamper_flag", pd.Series(dtype=int)) == 1])) if not latest.empty else 0,
+            "records": records_for_json(alerts),
+        }
+
+    def pole_energy_balance_payload(self, limit: int = 120) -> dict[str, Any]:
+        with self.lock:
+            recent = self.recent_pole_status.copy()
+        if recent.empty:
+            return {"records": [], "heatmap": []}
+        balance = recent.sort_values("timestamp").tail(limit).copy()
+        heatmap = (
+            balance.groupby(["pole_id", "area"], as_index=False)
+            .agg(
+                avg_gap=("energy_gap", "mean"),
+                avg_probability=("tamper_probability", "mean"),
+                alert_count=("tamper_flag", "sum"),
+            )
+            .sort_values(["avg_probability", "avg_gap"], ascending=False)
+            .reset_index(drop=True)
+        )
+        return {
+            "records": records_for_json(balance),
+            "heatmap": records_for_json(heatmap),
+        }
+
     def drift_payload(self) -> dict[str, Any]:
         return to_builtin(self.cached_drift_report)
 
@@ -575,6 +670,7 @@ class SmartGridRuntime:
             "dataset": self.paths.dataset.exists(),
             "live_dataset": self.paths.live_dataset.exists(),
             "meter_catalog": self.paths.meter_catalog.exists(),
+            "pole_catalog": self.paths.pole_catalog.exists(),
             "isolation_forest": self.paths.isolation_forest.exists(),
             "random_forest": self.paths.random_forest.exists(),
             "boost_model": self.paths.xgboost_model.exists(),
@@ -716,6 +812,21 @@ def get_consumer_segments() -> dict[str, Any]:
 @app.get("/efficiency")
 def get_efficiency(limit: int = 20) -> dict[str, Any]:
     return runtime.efficiency_payload(limit=limit)
+
+
+@app.get("/api/pole-status")
+def get_pole_status(limit: int = 20) -> dict[str, Any]:
+    return runtime.pole_status_payload(limit=limit)
+
+
+@app.get("/api/pole-tamper-alerts")
+def get_pole_tamper_alerts(limit: int = 20) -> dict[str, Any]:
+    return runtime.pole_tamper_alerts_payload(limit=limit)
+
+
+@app.get("/api/pole-energy-balance")
+def get_pole_energy_balance(limit: int = 120) -> dict[str, Any]:
+    return runtime.pole_energy_balance_payload(limit=limit)
 
 
 @app.get("/drift-report")

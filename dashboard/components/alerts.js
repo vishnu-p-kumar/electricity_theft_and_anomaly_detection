@@ -44,6 +44,19 @@
         timestamp: payload.drift.generated_at || "",
       });
     }
+    (payload.pole?.records || []).forEach((record) => {
+      if (Number(record.tamper_flag || 0) !== 1) {
+        return;
+      }
+      alerts.push({
+        severity: "Critical",
+        category: "Pole Tamper Alert",
+        meter_id: record.pole_id,
+        area: record.area,
+        summary: `Gap ${Number(record.energy_gap || 0).toFixed(2)} kWh | Probability ${Number(record.tamper_probability || 0).toFixed(2)}`,
+        timestamp: record.timestamp || "",
+      });
+    });
     return alerts.sort((left, right) => String(right.timestamp).localeCompare(String(left.timestamp)));
   }
 
