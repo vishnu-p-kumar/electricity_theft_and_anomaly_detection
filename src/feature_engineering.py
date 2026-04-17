@@ -6,10 +6,38 @@ import pandas as pd
 from utils.helpers import BASE_FEATURE_COLUMNS, CATEGORICAL_COLUMNS
 
 
+DEFAULT_FEATURE_VALUES = {
+    "voltage": 230.0,
+    "current": 0.0,
+    "power": 0.0,
+    "consumption_kwh": 0.0,
+    "power_factor": 1.0,
+    "temperature": 25.0,
+    "humidity": 50.0,
+    "rainfall": 0.0,
+    "wind_speed": 0.0,
+    "expected_consumption_kwh": 0.0,
+    "wastage_score": 0.0,
+    "region": "Bengaluru",
+    "area": "Unknown Area",
+    "weather_condition": "Clear",
+    "usage_profile": "residential",
+}
+
+
 def add_engineered_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     frame = dataframe.copy()
     if frame.empty:
         return frame
+
+    for column, default in DEFAULT_FEATURE_VALUES.items():
+        if column not in frame.columns:
+            frame[column] = default
+
+    if "timestamp" in frame.columns:
+        frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce")
+    else:
+        frame["timestamp"] = pd.NaT
 
     frame = frame.sort_values(["meter_id", "timestamp"]).reset_index(drop=True)
     frame["hour_of_day"] = frame["timestamp"].dt.hour

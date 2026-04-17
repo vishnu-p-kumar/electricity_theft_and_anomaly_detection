@@ -1,0 +1,27 @@
+{
+  "admin": {
+    "email": "admin@gmail.com",
+    "password": "admin123",
+    "role": "admin"
+  },
+  "inspectors": [
+    {
+      "id": "ins-73f1ddc941",
+      "name": "vishnu",
+      "username": "vishnu_24",
+      "assigned_area": "HSR Layout",
+      "password_hash": "1cb2c345687b96e57d8b1f83aa498c2a$3738e78567bfed868b3b8e6f595cc467b6ec155a32847e18c397f65800e938dc",
+      "role": "inspector",
+      "created_at": "2026-04-16T14:43:07.375445+00:00"
+    },
+    {
+      "id": "ins-010b8e4e17",
+      "name": "aravinda",
+      "username": "aravinda_1",
+      "assigned_area": "Whitefield",
+      "password_hash": "87be575a2c222a97c83011811883b2c2$29ea5ffc8eafe2630bd0e95f9fd1ad4c802caa40d69b1c2d16269027f55c97ea",
+      "role": "inspector",
+      "created_at": "2026-04-16T14:58:05.299992+00:00"
+    }
+  ]
+}

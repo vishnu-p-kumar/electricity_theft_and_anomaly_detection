@@ -8,11 +8,22 @@ from threading import Lock
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from inspector_dashboard import (
+    assign_inspection_task,
+    build_case_detail,
+    complete_inspection_task,
+    dashboard_payload,
+    filter_predictions_for_area,
+    filter_cases,
+)
+from inspector_manager import create_inspector, delete_inspector, get_all_inspectors
+from login import SESSION_COOKIE_NAME, authenticate_user, create_session_token, decode_session_token, ensure_users_file, redirect_user
 from src.alert_engine import dispatch_alerts
 from src.consumer_segmentation import cluster_consumers
 from src.data_drift_monitor import generate_drift_report
@@ -39,6 +50,7 @@ from src.train_models import train_all_models
 from src.transformer_forecasting import forecast_transformer_horizons
 from src.weather_api import WeatherService
 from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, load_json, records_for_json, to_builtin
+from utils.helpers import AREA_COORDINATES
 
 
 class MeterReading(BaseModel):
@@ -64,6 +76,28 @@ class MeterReading(BaseModel):
     usage_profile: str = "residential"
     theft_type: str = "unknown"
     seeded_theft_probability: float = 0.0
+
+
+class LoginRequest(BaseModel):
+    identifier: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=1)
+
+
+class InspectorCreateRequest(BaseModel):
+    name: str = Field(..., min_length=3)
+    username: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=6)
+    assigned_area: str = Field(..., min_length=2)
+
+
+class AssignInspectionRequest(BaseModel):
+    meter_id: str
+    inspection_date: str
+    inspection_time: str
+
+
+class CompleteInspectionRequest(BaseModel):
+    remarks: str = ""
 
 
 def _prepare_request_frame(payload: MeterReading | list[MeterReading]) -> pd.DataFrame:
@@ -310,9 +344,15 @@ class SmartGridRuntime:
         history_slice = self.historical_frame.sort_values("timestamp").tail(3200).copy()
         if recent_frame.empty:
             return history_slice
+        if history_slice.empty:
+            return recent_frame.copy()
         common_columns = sorted(set(history_slice.columns).union(recent_frame.columns))
         history_slice = history_slice.reindex(columns=common_columns)
         recent_slice = recent_frame.reindex(columns=common_columns)
+        if history_slice.dropna(axis=1, how="all").empty:
+            return recent_slice.reset_index(drop=True)
+        if recent_slice.dropna(axis=1, how="all").empty:
+            return history_slice.reset_index(drop=True)
         return pd.concat([history_slice, recent_slice], ignore_index=True)
 
     def advance_tick(self) -> None:
@@ -403,7 +443,7 @@ class SmartGridRuntime:
     async def simulation_loop(self) -> None:
         while True:
             await asyncio.sleep(self.update_interval)
-            self.advance_tick()
+            await asyncio.to_thread(self.advance_tick)
             await self.broadcast_snapshot()
 
     async def register_client(self, websocket: WebSocket) -> None:
@@ -728,6 +768,83 @@ class SmartGridRuntime:
 runtime = SmartGridRuntime()
 
 
+def _current_user(request: Request) -> dict[str, Any] | None:
+    return decode_session_token(request.cookies.get(SESSION_COOKIE_NAME))
+
+
+def _require_user(request: Request) -> dict[str, Any]:
+    user = _current_user(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return user
+
+
+def _require_role(request: Request, role: str) -> dict[str, Any]:
+    user = _require_user(request)
+    if user.get("role") != role:
+        raise HTTPException(status_code=403, detail=f"{role.title()} access required.")
+    return user
+
+
+def _runtime_predictions() -> pd.DataFrame:
+    return runtime.latest_predictions.copy() if not runtime.latest_predictions.empty else pd.DataFrame()
+
+
+def _available_inspection_areas() -> list[str]:
+    sources: list[pd.Series] = []
+    if not runtime.latest_predictions.empty and "area" in runtime.latest_predictions.columns:
+        sources.append(runtime.latest_predictions["area"])
+    if not runtime.historical_frame.empty and "area" in runtime.historical_frame.columns:
+        sources.append(runtime.historical_frame["area"])
+    if sources:
+        values = pd.concat(sources, ignore_index=True).dropna().astype(str).str.strip()
+        unique_values = sorted({value for value in values if value})
+        if unique_values:
+            return unique_values
+    return sorted(AREA_COORDINATES.keys())
+
+
+def _inspector_payload_for_request(
+    request: Request,
+    *,
+    detection_class: str | None = None,
+    risk_level: str | None = None,
+    location: str | None = None,
+    status: str | None = None,
+    date: str | None = None,
+) -> dict[str, Any]:
+    user = _require_role(request, "inspector")
+    assigned_area = str(user.get("assigned_area") or "").strip() or None
+    scoped_predictions = _runtime_predictions()
+    scoped_history = runtime.historical_frame.copy()
+    pole_tamper_records = runtime.pole_tamper_alerts_payload(limit=500).get("records", [])
+    payload = dashboard_payload(
+        latest_predictions=scoped_predictions,
+        historical_frame=scoped_history,
+        inspector_username=str(user.get("username") or ""),
+        pole_tamper_records=pole_tamper_records,
+        assigned_area=assigned_area,
+    )
+    filtered_cases = filter_cases(
+        payload.get("cases", []),
+        detection_class=detection_class,
+        risk_level=risk_level,
+        location=assigned_area or location,
+        status=status,
+        date=date,
+    )
+    payload["cases"] = filtered_cases
+    if filtered_cases:
+        payload["detail_preview"] = build_case_detail(
+            filtered_cases[0]["meter_id"],
+            scoped_predictions,
+            scoped_history,
+        )
+    else:
+        payload["detail_preview"] = None
+    return payload
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     runtime.bootstrap()
@@ -752,16 +869,178 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/dashboard", StaticFiles(directory=runtime.paths.dashboard_dir, html=True), name="dashboard")
 
 
-@app.get("/")
-def read_root() -> dict[str, Any]:
+@app.get("/", include_in_schema=False)
+def read_root(request: Request) -> RedirectResponse:
+    user = _current_user(request)
+    if user is None:
+        ensure_users_file()
+        return RedirectResponse(url="/login", status_code=303)
+    return RedirectResponse(url=redirect_user(user), status_code=303)
+
+
+@app.get("/login", include_in_schema=False)
+def login_page() -> RedirectResponse:
+    ensure_users_file()
+    return RedirectResponse(url="/dashboard/login.html", status_code=303)
+
+
+@app.get("/admin", include_in_schema=False)
+def admin_dashboard_entry(request: Request) -> RedirectResponse:
+    user = _current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") != "admin":
+        return RedirectResponse(url=redirect_user(user), status_code=303)
+    return RedirectResponse(url="/dashboard/index.html", status_code=303)
+
+
+@app.get("/inspector", include_in_schema=False)
+def inspector_dashboard_entry(request: Request) -> RedirectResponse:
+    user = _current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") != "inspector":
+        return RedirectResponse(url=redirect_user(user), status_code=303)
+    return RedirectResponse(url="/dashboard/inspector/index.html", status_code=303)
+
+
+@app.post("/auth/login")
+def login_user(payload: LoginRequest, response: Response) -> dict[str, Any]:
+    ensure_users_file()
+    user = authenticate_user(payload.identifier, payload.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid email/username or password.")
+    session_token = create_session_token(user)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=12 * 60 * 60,
+        path="/",
+    )
     return {
-        "project": "SMART GRID ELECTRICITY THEFT, ANOMALY, AND WASTAGE DETECTION SYSTEM",
-        "city": "Bengaluru",
-        "timestamp": runtime.current_timestamp.isoformat() if runtime.current_timestamp is not None else None,
-        "version": "2.0.0",
+        "authenticated": True,
+        "role": user.get("role"),
+        "name": user.get("name"),
+        "assigned_area": user.get("assigned_area"),
+        "redirect_to": redirect_user(user),
     }
+
+
+@app.post("/auth/logout")
+def logout_user() -> JSONResponse:
+    response = JSONResponse({"authenticated": False})
+    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+    return response
+
+
+@app.get("/auth/session")
+def session_status(request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    return {
+        "authenticated": True,
+        "username": user.get("username"),
+        "name": user.get("name"),
+        "role": user.get("role"),
+        "assigned_area": user.get("assigned_area"),
+        "expires_at": user.get("expires_at"),
+    }
+
+
+@app.get("/api/inspectors")
+def list_inspectors(request: Request) -> dict[str, Any]:
+    _require_role(request, "admin")
+    return {"inspectors": get_all_inspectors()}
+
+
+@app.get("/api/inspection-areas")
+def list_inspection_areas(request: Request) -> dict[str, Any]:
+    _require_role(request, "admin")
+    return {"areas": _available_inspection_areas()}
+
+
+@app.post("/api/inspectors")
+def add_inspector(payload: InspectorCreateRequest, request: Request) -> dict[str, Any]:
+    _require_role(request, "admin")
+    try:
+        inspector = create_inspector(payload.name, payload.username, payload.password, payload.assigned_area)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"inspector": inspector}
+
+
+@app.delete("/api/inspectors/{username}")
+def remove_inspector(username: str, request: Request) -> dict[str, Any]:
+    _require_role(request, "admin")
+    deleted = delete_inspector(username)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Inspector not found.")
+    return {"deleted": True, "username": username}
+
+
+@app.get("/api/inspector/dashboard")
+def get_inspector_dashboard(
+    request: Request,
+    detection_class: str | None = None,
+    risk_level: str | None = None,
+    location: str | None = None,
+    status: str | None = None,
+    date: str | None = None,
+) -> dict[str, Any]:
+    return _inspector_payload_for_request(
+        request,
+        detection_class=detection_class,
+        risk_level=risk_level,
+        location=location,
+        status=status,
+        date=date,
+    )
+
+
+@app.get("/api/inspector/cases/{meter_id}")
+def get_inspector_case_detail(meter_id: str, request: Request) -> dict[str, Any]:
+    user = _require_role(request, "inspector")
+    assigned_area = str(user.get("assigned_area") or "").strip() or None
+    return build_case_detail(
+        meter_id,
+        filter_predictions_for_area(_runtime_predictions(), assigned_area),
+        filter_predictions_for_area(runtime.historical_frame.copy(), assigned_area),
+    )
+
+
+@app.post("/api/inspector/tasks/assign")
+def assign_case(payload: AssignInspectionRequest, request: Request) -> dict[str, Any]:
+    user = _require_role(request, "inspector")
+    try:
+        task = assign_inspection_task(
+            meter_id=payload.meter_id,
+            inspection_date=payload.inspection_date,
+            inspection_time=payload.inspection_time,
+            inspector_username=str(user.get("username") or ""),
+            predictions=_runtime_predictions(),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"task": task}
+
+
+@app.post("/api/inspector/tasks/{task_id}/complete")
+def complete_case(task_id: str, payload: CompleteInspectionRequest, request: Request) -> dict[str, Any]:
+    user = _require_role(request, "inspector")
+    try:
+        task = complete_inspection_task(
+            task_id=task_id,
+            inspector_username=str(user.get("username") or ""),
+            remarks=payload.remarks,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"task": task}
 
 
 @app.get("/health")

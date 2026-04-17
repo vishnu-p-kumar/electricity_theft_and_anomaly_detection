@@ -226,6 +226,15 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .config-card {
@@ -268,6 +277,12 @@ a {
 
 .theme-toggle {
   min-width: 128px;
+}
+
+.danger-action {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fecaca;
 }
 
 .frame-shell {
@@ -670,6 +685,99 @@ a {
   text-decoration: none;
 }
 
+.auth-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+}
+
+.auth-hero {
+  padding: 38px;
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.22), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(7, 17, 31, 0.94), rgba(15, 28, 48, 0.96));
+}
+
+.auth-form-shell {
+  padding: 32px;
+  background: var(--panel-strong);
+}
+
+.auth-form-shell .form-control,
+.auth-form-shell .form-select,
+.auth-form-shell .input-group-text {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+.auth-form-shell .form-control::placeholder {
+  color: var(--muted);
+}
+
+.auth-error {
+  display: none;
+}
+
+.auth-error.visible {
+  display: block;
+}
+
+.table-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(20, 184, 166, 0.24);
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+}
+
+.detail-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.detail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-row span {
+  color: var(--muted);
+}
+
+.empty-inline {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 @keyframes floatIn {
   from {
     opacity: 0;
@@ -721,7 +829,9 @@ a {
   .section-grid.two-up,
   .section-grid.three-up,
   .section-grid.four-up,
-  .metric-strip {
+  .metric-strip,
+  .detail-grid,
+  .auth-card {
     grid-template-columns: 1fr;
   }
 }

@@ -84,6 +84,20 @@
           </div>
 
           <div class="topbar-actions">
+            <div class="auth-actions d-none" id="adminActions">
+              <button class="theme-toggle" id="createInspectorButton" type="button">
+                <i class="bi bi-person-plus"></i>
+                <span>Create Inspector</span>
+              </button>
+              <button class="theme-toggle" id="viewInspectorsButton" type="button">
+                <i class="bi bi-people"></i>
+                <span>View Inspectors</span>
+              </button>
+              <button class="theme-toggle danger-action" id="logoutButton" type="button">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+              </button>
+            </div>
             <div class="config-card">
               <label class="form-label" for="apiBase">API Base URL</label>
               <div class="input-group input-group-sm">
@@ -113,5 +127,6 @@
       crossorigin="anonymous"
     ></script>
     <script src="./main.js?v=2026-04-13-pole-monitoring-v2"></script>
+    <script src="./auth.js?v=2026-04-16-auth-v4"></script>
   </body>
 </html>
