@@ -4,6 +4,7 @@ import asyncio
 import os
 from collections import deque
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -24,7 +25,7 @@ from inspector_dashboard import (
 )
 from inspector_manager import create_inspector, delete_inspector, get_all_inspectors
 from login import SESSION_COOKIE_NAME, authenticate_user, create_session_token, decode_session_token, ensure_users_file, redirect_user
-from src.alert_engine import dispatch_alerts
+from src.alert_engine import dispatch_alerts, send_inspector_welcome_message
 from src.consumer_segmentation import cluster_consumers
 from src.data_drift_monitor import generate_drift_report
 from src.data_generator import generate_smart_meter_data
@@ -51,6 +52,21 @@ from src.transformer_forecasting import forecast_transformer_horizons
 from src.weather_api import WeatherService
 from utils.helpers import dataframe_to_sqlite, ensure_project_dirs, generation_config, load_json, records_for_json, to_builtin
 from utils.helpers import AREA_COORDINATES
+
+
+def _load_local_env() -> None:
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_local_env()
 
 
 class MeterReading(BaseModel):
@@ -88,6 +104,7 @@ class InspectorCreateRequest(BaseModel):
     username: str = Field(..., min_length=3)
     password: str = Field(..., min_length=6)
     assigned_area: str = Field(..., min_length=2)
+    chat_id: str = Field(..., min_length=6)
 
 
 class AssignInspectionRequest(BaseModel):
@@ -392,15 +409,16 @@ class SmartGridRuntime:
         alert_results: list[dict[str, Any]] = []
         if os.getenv("SMARTGRID_ENABLE_ALERTS", "0") == "1":
             pole_alerts = pole_status.loc[pole_status["tamper_flag"] == 1, ["pole_id", "area", "tamper_probability"]].copy()
+            theft_alerts = predictions.loc[predictions["status"] == "Electricity Theft"].copy()
             alert_frame = pd.concat(
                 [
-                    predictions.loc[predictions["risk_level"].isin(["High", "Critical"])],
+                    theft_alerts,
                     pole_alerts,
                 ],
                 ignore_index=True,
                 sort=False,
             )
-            alert_results = dispatch_alerts(alert_frame, limit=5)
+            alert_results = dispatch_alerts(alert_frame, limit=None)
 
         with self.lock:
             self.current_timestamp = pd.Timestamp(timestamp)
@@ -968,10 +986,14 @@ def list_inspection_areas(request: Request) -> dict[str, Any]:
 def add_inspector(payload: InspectorCreateRequest, request: Request) -> dict[str, Any]:
     _require_role(request, "admin")
     try:
-        inspector = create_inspector(payload.name, payload.username, payload.password, payload.assigned_area)
+        inspector = create_inspector(payload.name, payload.username, payload.password, payload.assigned_area, payload.chat_id)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"inspector": inspector}
+    try:
+        notification = send_inspector_welcome_message(inspector)
+    except Exception as error:
+        notification = {"provider": "telegram", "status": "error", "detail": str(error)}
+    return {"inspector": inspector, "notification": notification}
 
 
 @app.delete("/api/inspectors/{username}")

@@ -75,6 +75,7 @@ def _normalise_inspector(record: dict[str, Any]) -> dict[str, Any]:
         "username": record.get("username", ""),
         "role": "inspector",
         "assigned_area": record.get("assigned_area"),
+        "chat_id": record.get("chat_id"),
         "created_at": record.get("created_at"),
     }
 

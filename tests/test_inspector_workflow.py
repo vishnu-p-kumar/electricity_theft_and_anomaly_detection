@@ -12,17 +12,19 @@ from task_generator import ensure_tasks_file, generate_tasks_from_anomalies
 def test_authenticate_user_supports_admin_and_inspector(tmp_path) -> None:
     users_path = tmp_path / "users.json"
 
-    inspector = create_inspector("Field One", "inspector1", "secret123", "Area A", path=users_path)
+    inspector = create_inspector("Field One", "inspector1", "secret123", "Area A", "1242950500", path=users_path)
     admin = authenticate_user("admin@gmail.com", "admin123", path=users_path)
     field_user = authenticate_user("inspector1", "secret123", path=users_path)
 
     assert inspector["username"] == "inspector1"
     assert inspector["assigned_area"] == "Area A"
+    assert inspector["chat_id"] == "1242950500"
     assert admin is not None
     assert admin["role"] == "admin"
     assert field_user is not None
     assert field_user["role"] == "inspector"
     assert field_user["assigned_area"] == "Area A"
+    assert field_user["chat_id"] == "1242950500"
     assert len(get_all_inspectors(path=users_path)) == 1
 
 

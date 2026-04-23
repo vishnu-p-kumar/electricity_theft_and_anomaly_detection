@@ -27,7 +27,7 @@ Check that it works:
 Create the environment file if needed:
 
 ```powershell
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 Install project dependencies:
@@ -138,7 +138,7 @@ If you want the full command order from start to finish, use this:
 ```powershell
 cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\electricity_theft_and_anomaly_detection"
 $PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python310\python.exe"
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 & $PYTHON --version
 & $PYTHON -m pip install -r requirements.txt
 & $PYTHON -m pip install -r requirements-test.txt

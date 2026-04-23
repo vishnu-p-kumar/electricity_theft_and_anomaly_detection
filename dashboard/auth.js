@@ -63,6 +63,63 @@
     return cachedInspectors;
   }
 
+  function normalizeAreaOptions(areas) {
+    return (areas || [])
+      .map((area) => {
+        if (typeof area === "string") {
+          return area.trim();
+        }
+        if (area && typeof area === "object") {
+          return String(area.area || area.name || area.label || area.value || "").trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+
+  function formatApiErrorDetail(detail) {
+    if (!detail) {
+      return "Unable to create inspector.";
+    }
+    if (typeof detail === "string") {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => {
+          if (!item || typeof item !== "object") {
+            return String(item || "").trim();
+          }
+          const path = Array.isArray(item.loc) ? item.loc.filter((part) => part !== "body").join(" -> ") : "";
+          const message = String(item.msg || item.message || "").trim();
+          return [path, message].filter(Boolean).join(": ");
+        })
+        .filter(Boolean);
+      return messages.join("\n") || "Unable to create inspector.";
+    }
+    if (typeof detail === "object") {
+      return String(detail.message || detail.error || JSON.stringify(detail));
+    }
+    return String(detail);
+  }
+
+  function formatNotificationMessage(notification, inspector) {
+    if (!notification || typeof notification !== "object") {
+      return "Inspector created successfully.";
+    }
+    const label = inspector && (inspector.name || inspector.username) ? (inspector.name || inspector.username) : "Inspector";
+    if (notification.status === "sent") {
+      return `Inspector ${label} created and Telegram message sent.`;
+    }
+    if (notification.status === "skipped") {
+      return `Inspector ${label} created, but Telegram message was skipped. ${notification.detail || ""}`.trim();
+    }
+    if (notification.status === "error") {
+      return `Inspector ${label} created, but Telegram message failed. ${notification.detail || ""}`.trim();
+    }
+    return `Inspector ${label} created successfully.`;
+  }
+
   function inspectorRowsMarkup(inspectors) {
     if (!inspectors.length) {
       return '<div class="empty-state">No inspectors created yet.</div>';
@@ -75,6 +132,7 @@
               <th>Name</th>
               <th>Username</th>
               <th>Assigned Area</th>
+              <th>Telegram Chat ID</th>
               <th>Role</th>
               <th>Created</th>
               <th>Action</th>
@@ -88,6 +146,7 @@
                     <td>${item.name || "-"}</td>
                     <td>${item.username || "-"}</td>
                     <td>${item.assigned_area || "-"}</td>
+                    <td>${item.chat_id || "-"}</td>
                     <td>${item.role || "inspector"}</td>
                     <td>${(item.created_at || "").replace("T", " ").slice(0, 19) || "-"}</td>
                     <td><button class="table-action-button delete-inspector" data-username="${item.username}">Delete</button></td>
@@ -194,6 +253,10 @@
                 <label class="form-label">Password</label>
                 <input class="form-control" name="password" type="password" required />
               </div>
+              <div class="mt-3">
+                <label class="form-label">Telegram Chat ID</label>
+                <input class="form-control" name="chat_id" required inputmode="numeric" placeholder="1242950500" />
+              </div>
               <div class="alert alert-danger mt-3 d-none" id="createInspectorError"></div>
             </div>
             <div class="modal-footer border-secondary-subtle">
@@ -210,7 +273,8 @@
     modal.show();
     const areaSelect = wrapper.querySelector("#assignedAreaSelect");
     const setAreaOptions = (areas) => {
-      areaSelect.innerHTML = `<option value="">Select area</option>${areas.map((area) => `<option value="${area}">${area}</option>`).join("")}`;
+      const normalizedAreas = normalizeAreaOptions(areas);
+      areaSelect.innerHTML = `<option value="">Select area</option>${normalizedAreas.map((area) => `<option value="${area}">${area}</option>`).join("")}`;
     };
     setAreaOptions(cachedAreas && cachedAreas.length ? cachedAreas : fallbackAreas);
     try {
@@ -234,18 +298,22 @@
           username: formData.get("username"),
           assigned_area: formData.get("assigned_area"),
           password: formData.get("password"),
+          chat_id: formData.get("chat_id"),
         }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({ detail: "Unable to create inspector." }));
-        errorBox.textContent = payload.detail || "Unable to create inspector.";
+        errorBox.textContent = formatApiErrorDetail(payload.detail);
         errorBox.classList.remove("d-none");
         return;
       }
       const payload = await response.json();
       cachedInspectors = [...(cachedInspectors || []), payload.inspector].sort((a, b) => `${a.name || ""}${a.username || ""}`.localeCompare(`${b.name || ""}${b.username || ""}`));
       modal.hide();
-      showToast("Inspector created successfully.", "success");
+      showToast(
+        formatNotificationMessage(payload.notification, payload.inspector),
+        payload.notification && payload.notification.status !== "sent" ? "warning" : "success"
+      );
     });
   }
 

@@ -8,6 +8,7 @@ coverage.xml
 venv/
 ENV/
 .env
+.env.example
 *.pyc
 *.pyo
 *.pyd
@@ -33,3 +34,4 @@ reports/*
 
 .idea/
 .vscode/
+

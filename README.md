@@ -702,7 +702,7 @@ If `python` is already configured in your PATH, you can use `python` instead of 
 ### 11.2 Create `.env`
 
 ```powershell
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 ### 11.3 Install Dependencies
@@ -758,7 +758,7 @@ Advanced extras add packages such as:
 ```powershell
 cd "c:\Users\vishn\Desktop\College\SEMISTER\CSE 6th SEM\Data Science\Project 1\electricity_theft_and_anomaly_detection"
 $PYTHON = "C:\Users\vishn\AppData\Local\Programs\Python\Python311\python.exe"
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 & $PYTHON -m pip install -r requirements.txt
 & $PYTHON -m pip install -r requirements-test.txt
 & $PYTHON run_project.py

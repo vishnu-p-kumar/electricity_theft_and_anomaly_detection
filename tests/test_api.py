@@ -69,6 +69,122 @@ def test_pole_endpoints(monkeypatch) -> None:
     assert balance_response.json()["heatmap"][0]["pole_id"] == "P0001"
 
 
+def test_advance_tick_dispatches_all_detected_theft_and_pole_tamper_alerts(monkeypatch) -> None:
+    runtime = api_main.SmartGridRuntime()
+    runtime.timeline = [pd.Timestamp("2026-04-13T08:00:00")]
+    runtime.cursor = 0
+    runtime.simulation_source = pd.DataFrame([{"timestamp": pd.Timestamp("2026-04-13T08:00:00"), "meter_id": "seed"}])
+    runtime.historical_frame = pd.DataFrame([{"timestamp": pd.Timestamp("2026-04-13T07:00:00"), "meter_id": "hist", "area": "Area A"}])
+    runtime.historical_pole_frame = pd.DataFrame([{"timestamp": pd.Timestamp("2026-04-13T07:00:00"), "pole_id": "P0", "area": "Area A"}])
+    runtime.pole_catalog = pd.DataFrame()
+
+    predictions = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "timestamp": "2026-04-13T08:00:00",
+                "area": "Area A",
+                "status": "Electricity Theft",
+                "risk_level": "Medium",
+                "risk_score": 52.0,
+                "theft_probability": 0.91,
+                "anomaly_score": 0.4,
+            },
+            {
+                "meter_id": "M2",
+                "timestamp": "2026-04-13T08:00:00",
+                "area": "Area B",
+                "status": "Electricity Theft",
+                "risk_level": "Low",
+                "risk_score": 48.0,
+                "theft_probability": 0.89,
+                "anomaly_score": 0.2,
+            },
+        ]
+    )
+    pole_status = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-04-13T08:00:00",
+                "pole_id": "P1",
+                "area": "Area C",
+                "tamper_probability": 0.97,
+                "tamper_flag": 1,
+            }
+        ]
+    )
+    captured: dict[str, object] = {}
+
+    monkeypatch.setenv("SMARTGRID_ENABLE_ALERTS", "1")
+    monkeypatch.setattr(api_main, "_ensure_visible_theft_candidate", lambda frame: frame)
+    monkeypatch.setattr(api_main, "classify_meter_events", lambda _frame: predictions.copy())
+    monkeypatch.setattr(api_main, "limit_theft_alerts", lambda frame, max_alerts=2, preferred_meter_id=None: frame)
+    monkeypatch.setattr(api_main, "_prioritize_sticky_meter", lambda frame, meter_id, sort_columns, ascending=None: frame)
+    monkeypatch.setattr(api_main, "score_meter_risk", lambda frame: frame)
+    monkeypatch.setattr(api_main, "calculate_efficiency_metrics", lambda frame: frame)
+    monkeypatch.setattr(api_main, "simulate_pole_energy", lambda frame, pole_catalog=None: frame)
+    monkeypatch.setattr(api_main, "detect_pole_tampering", lambda current_frame, historical_frame: pole_status.copy())
+    monkeypatch.setattr(api_main, "cluster_consumers", lambda frame: pd.DataFrame())
+    monkeypatch.setattr(api_main, "generate_drift_report", lambda reference_frame, current_frame: {"drift_detected": False})
+    monkeypatch.setattr(runtime, "_build_forecast_payload", lambda: {"next_hour": 0.0})
+
+    def fake_dispatch(frame: pd.DataFrame, limit=None):
+        captured["frame"] = frame.copy()
+        captured["limit"] = limit
+        return [{"provider": "telegram", "status": "sent", "count": len(frame), "recipients": 3}]
+
+    monkeypatch.setattr(api_main, "dispatch_alerts", fake_dispatch)
+
+    runtime.advance_tick()
+
+    sent_frame = captured["frame"]
+    assert captured["limit"] is None
+    assert list(sent_frame["area"]) == ["Area A", "Area B", "Area C"]
+    assert list(sent_frame.get("status", pd.Series(dtype=object)).fillna(""))[:2] == ["Electricity Theft", "Electricity Theft"]
+    assert runtime.cached_alert_results == [{"provider": "telegram", "status": "sent", "count": 3, "recipients": 3}]
+
+
+def test_add_inspector_sends_telegram_welcome_message(monkeypatch) -> None:
+    monkeypatch.setattr(api_main.runtime, "bootstrap", lambda: None)
+    monkeypatch.setattr(api_main.runtime, "simulation_loop", _idle_loop)
+    monkeypatch.setattr(api_main, "_require_role", lambda _request, role: {"role": role, "username": "admin"})
+    monkeypatch.setattr(
+        api_main,
+        "create_inspector",
+        lambda name, username, password, assigned_area, chat_id: {
+            "id": "ins-123",
+            "name": name,
+            "username": username,
+            "assigned_area": assigned_area,
+            "chat_id": chat_id,
+            "role": "inspector",
+            "created_at": "2026-04-23T03:00:00+00:00",
+        },
+    )
+    monkeypatch.setattr(
+        api_main,
+        "send_inspector_welcome_message",
+        lambda inspector: {"provider": "telegram", "status": "sent", "recipients": 1, "count": 1},
+    )
+
+    with TestClient(api_main.app) as client:
+        response = client.post(
+            "/api/inspectors",
+            json={
+                "name": "Field One",
+                "username": "inspector1",
+                "password": "secret123",
+                "assigned_area": "Area A",
+                "chat_id": "1242950500",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["inspector"]["username"] == "inspector1"
+    assert payload["notification"] == {"provider": "telegram", "status": "sent", "recipients": 1, "count": 1}
+
+
 def test_overview_snapshot_uses_wastage_flag() -> None:
     frame = pd.DataFrame(
         [

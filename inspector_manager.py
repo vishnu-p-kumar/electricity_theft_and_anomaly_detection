@@ -18,16 +18,25 @@ def _sanitise_inspector(record: dict[str, Any]) -> dict[str, Any]:
         "name": record.get("name"),
         "username": record.get("username"),
         "assigned_area": record.get("assigned_area"),
+        "chat_id": record.get("chat_id"),
         "role": record.get("role", "inspector"),
         "created_at": record.get("created_at"),
     }
 
 
-def create_inspector(name: str, username: str, password: str, assigned_area: str, path: str | Path | None = None) -> dict[str, Any]:
+def create_inspector(
+    name: str,
+    username: str,
+    password: str,
+    assigned_area: str,
+    chat_id: str,
+    path: str | Path | None = None,
+) -> dict[str, Any]:
     clean_name = name.strip()
     clean_username = username.strip().lower()
     clean_password = password.strip()
     clean_area = assigned_area.strip()
+    clean_chat_id = chat_id.strip()
     if len(clean_name) < 3:
         raise ValueError("Inspector name must be at least 3 characters long.")
     if not USERNAME_PATTERN.match(clean_username):
@@ -36,6 +45,8 @@ def create_inspector(name: str, username: str, password: str, assigned_area: str
         raise ValueError("Password must be at least 6 characters long.")
     if len(clean_area) < 2:
         raise ValueError("Assigned inspection area is required.")
+    if not re.fullmatch(r"-?\d{6,20}", clean_chat_id):
+        raise ValueError("Telegram chat ID must be a valid numeric chat ID.")
 
     payload = ensure_users_file(path)
     existing = {
@@ -50,6 +61,7 @@ def create_inspector(name: str, username: str, password: str, assigned_area: str
         "name": clean_name,
         "username": clean_username,
         "assigned_area": clean_area,
+        "chat_id": clean_chat_id,
         "password_hash": hash_password(clean_password),
         "role": "inspector",
         "created_at": datetime.now(timezone.utc).isoformat(),
