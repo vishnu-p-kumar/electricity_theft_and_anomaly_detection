@@ -13,12 +13,43 @@
       center: [12.97, 77.61],
       zoom: 11,
       zoomControl: true,
+      preferCanvas: true,
+      scrollWheelZoom: "center",
+      wheelDebounceTime: 80,
+      wheelPxPerZoomLevel: 90,
     });
+    const container = map.getContainer();
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    mapStore[containerId] = { map, layers: [] };
+    const store = {
+      map,
+      layers: [],
+      hasFitBounds: false,
+      isInteracting: false,
+      pendingPayload: null,
+      userMovedMap: false,
+    };
+
+    map.on("zoomstart movestart", () => {
+      store.isInteracting = true;
+    });
+    map.on("dragstart zoomstart", () => {
+      store.userMovedMap = true;
+    });
+    map.on("zoomend moveend", () => {
+      store.isInteracting = false;
+      if (store.pendingPayload) {
+        const pendingPayload = store.pendingPayload;
+        store.pendingPayload = null;
+        renderMap(containerId, pendingPayload);
+      }
+    });
+
+    mapStore[containerId] = store;
     return mapStore[containerId];
   }
 
@@ -30,6 +61,10 @@
   function renderMap(containerId, payload) {
     const store = ensureMap(containerId);
     if (!store) {
+      return;
+    }
+    if (store.isInteracting) {
+      store.pendingPayload = payload;
       return;
     }
     clearLayers(store);
@@ -95,8 +130,9 @@
       store.layers.push(heatLayer);
     }
 
-    if (bounds.length) {
+    if (bounds.length && !store.hasFitBounds && !store.userMovedMap) {
       store.map.fitBounds(bounds, { padding: [24, 24] });
+      store.hasFitBounds = true;
     }
     window.setTimeout(() => store.map.invalidateSize(), 120);
   }

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 import src.alert_engine as alert_engine
-from src.alert_engine import _send_telegram, build_alert_messages, send_inspector_welcome_message
+from src.alert_engine import _send_telegram, build_alert_messages, send_backend_status_message, send_inspector_welcome_message
 
 
 def test_build_alert_messages_includes_theft_and_pole_tamper_with_labels() -> None:
@@ -385,6 +385,30 @@ def test_send_inspector_welcome_message_sends_direct_message(monkeypatch) -> Non
             "text": "Welcome Field One.\nYour Smart Grid inspector account has been created successfully.\nUsername: inspector1\nAssigned area: Area A\nYou will receive field alerts here when activity is detected in your assigned area.",
         }
     ]
+
+
+def test_send_backend_status_message_uses_configured_status_chat(monkeypatch) -> None:
+    sent_payloads: list[dict[str, str]] = []
+
+    class DummyResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"ok": True}
+
+    monkeypatch.setenv("SMARTGRID_TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("SMARTGRID_TELEGRAM_CHAT_ID", "999999")
+    monkeypatch.setattr(
+        alert_engine.requests,
+        "post",
+        lambda _url, json, timeout: sent_payloads.append(json) or DummyResponse(),
+    )
+
+    result = send_backend_status_message("Smart Grid backend started", ["Current tick: ready"])
+
+    assert result == {"provider": "telegram", "status": "sent", "count": 1, "recipients": 1}
+    assert sent_payloads == [{"chat_id": "999999", "text": "Smart Grid backend started\nCurrent tick: ready"}]
 
 
 def test_send_inspector_welcome_message_skips_without_bot_token(monkeypatch) -> None:

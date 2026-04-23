@@ -25,8 +25,7 @@ from inspector_dashboard import (
 )
 from inspector_manager import create_inspector, delete_inspector, get_all_inspectors
 from login import SESSION_COOKIE_NAME, authenticate_user, create_session_token, decode_session_token, ensure_users_file, redirect_user
-from src.alert_engine import dispatch_alerts, send_inspector_welcome_message
-from src.consumer_segmentation import cluster_consumers
+from src.alert_engine import dispatch_alerts, send_backend_status_message, send_inspector_welcome_message
 from src.data_drift_monitor import generate_drift_report
 from src.data_generator import generate_smart_meter_data
 from src.demand_forecasting import forecast_horizons
@@ -213,6 +212,8 @@ class SmartGridRuntime:
         self.weather_service = WeatherService()
         self.lock = Lock()
         self.update_interval = int(os.getenv("SMARTGRID_UPDATE_INTERVAL", "4"))
+        self.telegram_status_interval = int(os.getenv("SMARTGRID_TELEGRAM_STATUS_INTERVAL", "60"))
+        self.last_telegram_status_at: pd.Timestamp | None = None
         self.demo_mode = os.getenv("SMARTGRID_DEMO_MODE", "0") == "1"
         self.enable_periodic_reports = os.getenv(
             "SMARTGRID_ENABLE_PERIODIC_REPORTS",
@@ -227,7 +228,6 @@ class SmartGridRuntime:
         self.current_timestamp: pd.Timestamp | None = None
         self.ws_clients: list[WebSocket] = []
         self.cached_forecast: dict[str, Any] = _empty_forecast()
-        self.cached_segments = pd.DataFrame()
         self.cached_drift_report: dict[str, Any] = {
             "generated_at": None,
             "method": "fallback",
@@ -357,21 +357,6 @@ class SmartGridRuntime:
             return self.latest_predictions.copy()
         return pd.concat(list(self.prediction_buffer), ignore_index=True)
 
-    def _clustering_source(self, recent_frame: pd.DataFrame) -> pd.DataFrame:
-        history_slice = self.historical_frame.sort_values("timestamp").tail(3200).copy()
-        if recent_frame.empty:
-            return history_slice
-        if history_slice.empty:
-            return recent_frame.copy()
-        common_columns = sorted(set(history_slice.columns).union(recent_frame.columns))
-        history_slice = history_slice.reindex(columns=common_columns)
-        recent_slice = recent_frame.reindex(columns=common_columns)
-        if history_slice.dropna(axis=1, how="all").empty:
-            return recent_slice.reset_index(drop=True)
-        if recent_slice.dropna(axis=1, how="all").empty:
-            return history_slice.reset_index(drop=True)
-        return pd.concat([history_slice, recent_slice], ignore_index=True)
-
     def advance_tick(self) -> None:
         if not self.timeline:
             return
@@ -401,7 +386,6 @@ class SmartGridRuntime:
         recent_poles = recent_poles.tail(4000).reset_index(drop=True)
 
         forecast_payload = self._build_forecast_payload()
-        segments = cluster_consumers(self._clustering_source(recent))
 
         reference_frame = self.historical_frame.sort_values("timestamp").tail(3500)
         drift_report = generate_drift_report(reference_frame=reference_frame, current_frame=recent.tail(1200))
@@ -425,7 +409,6 @@ class SmartGridRuntime:
             self.latest_predictions = predictions
             self.prediction_buffer.append(predictions.copy())
             self.cached_forecast = forecast_payload
-            self.cached_segments = segments
             self.cached_drift_report = drift_report
             self.cached_alert_results = alert_results
             self.latest_pole_status = pole_status
@@ -434,7 +417,6 @@ class SmartGridRuntime:
             dataframe_to_sqlite(self.latest_predictions, "live_predictions")
             dataframe_to_sqlite(recent, "recent_predictions")
             dataframe_to_sqlite(self.latest_predictions, "risk_scores")
-            dataframe_to_sqlite(self.cached_segments, "consumer_segments")
             dataframe_to_sqlite(self.latest_predictions, "efficiency_metrics")
             dataframe_to_sqlite(_flatten_drift_report(self.cached_drift_report), "drift_reports")
             dataframe_to_sqlite(recent_poles, "pole_energy_data")
@@ -451,17 +433,52 @@ class SmartGridRuntime:
                     forecast_frames.append(model_series)
             if forecast_frames:
                 dataframe_to_sqlite(pd.concat(forecast_frames, ignore_index=True), "forecast_snapshots")
-            if self.cursor % 3 == 0:
+            if self.cursor % 3 == 0 and {"latitude", "longitude", "theft_probability"}.issubset(self.latest_predictions.columns):
                 build_theft_heatmap(self.latest_predictions)
-            if self.enable_periodic_reports and self.cursor % 6 == 0:
+            report_columns = {"timestamp", "meter_id", "area", "consumption_kwh", "temperature"}
+            if self.enable_periodic_reports and self.cursor % 6 == 0 and report_columns.issubset(recent.columns):
                 generate_daily_report(recent, forecast=self.cached_forecast)
 
         self.cursor = (self.cursor + 1) % len(self.timeline)
+
+    def _telegram_status_details(self) -> list[str]:
+        with self.lock:
+            latest = self.latest_predictions.copy()
+            current_timestamp = self.current_timestamp
+        theft_count = int((latest.get("status", pd.Series(dtype=object)) == "Electricity Theft").sum()) if not latest.empty else 0
+        anomaly_count = int((latest.get("is_anomaly", pd.Series(dtype=int)) == 1).sum()) if not latest.empty else 0
+        return [
+            f"Current tick: {current_timestamp.isoformat() if current_timestamp is not None else 'not ready'}",
+            f"Active meters: {int(latest['meter_id'].nunique()) if not latest.empty and 'meter_id' in latest.columns else 0}",
+            f"Theft alerts: {theft_count}",
+            f"Anomalies: {anomaly_count}",
+        ]
+
+    def send_telegram_status(self, title: str = "Smart Grid backend running", *, force: bool = False) -> dict[str, Any]:
+        if os.getenv("SMARTGRID_ENABLE_ALERTS", "0") != "1":
+            return {"provider": "telegram", "status": "skipped", "detail": "SMARTGRID_ENABLE_ALERTS is disabled."}
+
+        now = pd.Timestamp.utcnow().tz_localize(None)
+        if not force and self.last_telegram_status_at is not None:
+            elapsed = (now - self.last_telegram_status_at).total_seconds()
+            if elapsed < max(self.telegram_status_interval, 1):
+                return {"provider": "telegram", "status": "throttled", "seconds_until_next": round(max(self.telegram_status_interval - elapsed, 0), 1)}
+
+        try:
+            result = send_backend_status_message(title, self._telegram_status_details())
+        except Exception as error:
+            result = {"provider": "telegram", "status": "error", "detail": str(error)}
+
+        if result.get("status") == "sent":
+            self.last_telegram_status_at = now
+        print(f"Telegram backend status notification: {result}", flush=True)
+        return result
 
     async def simulation_loop(self) -> None:
         while True:
             await asyncio.sleep(self.update_interval)
             await asyncio.to_thread(self.advance_tick)
+            await asyncio.to_thread(self.send_telegram_status)
             await self.broadcast_snapshot()
 
     async def register_client(self, websocket: WebSocket) -> None:
@@ -486,7 +503,6 @@ class SmartGridRuntime:
             "weather": self.weather_payload(),
             "meters": self.meter_payload(limit=16),
             "risk": self.risk_scores_payload(limit=12),
-            "segments": self.consumer_segments_payload(),
             "efficiency": self.efficiency_payload(limit=10),
             "drift": self.drift_payload(),
             "forecast": self.forecast_payload(),
@@ -555,6 +571,8 @@ class SmartGridRuntime:
             "meter_id",
             "timestamp",
             "area",
+            "latitude",
+            "longitude",
             "consumption_kwh",
             "power",
             "voltage",
@@ -637,25 +655,6 @@ class SmartGridRuntime:
         with self.lock:
             latest = self.latest_predictions.copy()
         return risk_payload(latest, limit=limit)
-
-    def consumer_segments_payload(self) -> dict[str, Any]:
-        with self.lock:
-            segments = self.cached_segments.copy()
-        if segments.empty:
-            return {"summary": [], "records": []}
-        summary = (
-            segments.groupby("segment", as_index=False)
-            .agg(
-                meter_count=("meter_id", "nunique"),
-                avg_consumption_kwh=("avg_consumption_kwh", "mean"),
-            )
-            .sort_values("meter_count", ascending=False)
-            .reset_index(drop=True)
-        )
-        return {
-            "summary": records_for_json(summary),
-            "records": records_for_json(segments),
-        }
 
     def efficiency_payload(self, limit: int = 20) -> dict[str, Any]:
         with self.lock:
@@ -866,6 +865,7 @@ def _inspector_payload_for_request(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     runtime.bootstrap()
+    await asyncio.to_thread(runtime.send_telegram_status, "Smart Grid backend started", force=True)
     task = asyncio.create_task(runtime.simulation_loop())
     try:
         yield
@@ -1103,11 +1103,6 @@ def get_forecast() -> dict[str, Any]:
 @app.get("/risk-scores")
 def get_risk_scores(limit: int = 25) -> dict[str, Any]:
     return runtime.risk_scores_payload(limit=limit)
-
-
-@app.get("/consumer-segments")
-def get_consumer_segments() -> dict[str, Any]:
-    return runtime.consumer_segments_payload()
 
 
 @app.get("/efficiency")

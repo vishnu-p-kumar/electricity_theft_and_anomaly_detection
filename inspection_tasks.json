@@ -13741,6 +13741,66 @@
       "remarks": "",
       "detection_time": "2026-04-13T03:00:00",
       "created_at": "2026-04-23T03:12:29.249464+00:00"
+    },
+    {
+      "task_id": "task-6b2a54ad3c24",
+      "meter_id": "M0329",
+      "customer_id": null,
+      "location": "HSR Layout",
+      "anomaly_score": 0.4849,
+      "risk": "LOW",
+      "assigned_to": "",
+      "inspection_date": "",
+      "inspection_time": "",
+      "status": "Pending",
+      "remarks": "",
+      "detection_time": "2026-04-13T08:00:00",
+      "created_at": "2026-04-23T04:11:19.879965+00:00"
+    },
+    {
+      "task_id": "task-388289a19ee2",
+      "meter_id": "M0282",
+      "customer_id": null,
+      "location": "HSR Layout",
+      "anomaly_score": 0.5463,
+      "risk": "LOW",
+      "assigned_to": "",
+      "inspection_date": "",
+      "inspection_time": "",
+      "status": "Pending",
+      "remarks": "",
+      "detection_time": "2026-04-13T08:00:00",
+      "created_at": "2026-04-23T04:11:19.879965+00:00"
+    },
+    {
+      "task_id": "task-6f55d518982e",
+      "meter_id": "M0002",
+      "customer_id": null,
+      "location": "HSR Layout",
+      "anomaly_score": 0.5307,
+      "risk": "LOW",
+      "assigned_to": "",
+      "inspection_date": "",
+      "inspection_time": "",
+      "status": "Pending",
+      "remarks": "",
+      "detection_time": "2026-04-13T08:00:00",
+      "created_at": "2026-04-23T04:11:19.879965+00:00"
+    },
+    {
+      "task_id": "task-d9afc8a9b8aa",
+      "meter_id": "M0163",
+      "customer_id": null,
+      "location": "HSR Layout",
+      "anomaly_score": 0.5142,
+      "risk": "LOW",
+      "assigned_to": "",
+      "inspection_date": "",
+      "inspection_time": "",
+      "status": "Pending",
+      "remarks": "",
+      "detection_time": "2026-04-13T08:00:00",
+      "created_at": "2026-04-23T04:11:19.879965+00:00"
     }
   ]
 }

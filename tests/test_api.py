@@ -17,6 +17,7 @@ async def _idle_loop() -> None:
 
 def test_health_endpoint(monkeypatch) -> None:
     monkeypatch.setattr(api_main.runtime, "bootstrap", lambda: None)
+    monkeypatch.setattr(api_main.runtime, "send_telegram_status", lambda *args, **kwargs: {"provider": "telegram", "status": "skipped"})
     monkeypatch.setattr(api_main.runtime, "simulation_loop", _idle_loop)
     monkeypatch.setattr(
         api_main.runtime,
@@ -39,6 +40,7 @@ def test_health_endpoint(monkeypatch) -> None:
 
 def test_pole_endpoints(monkeypatch) -> None:
     monkeypatch.setattr(api_main.runtime, "bootstrap", lambda: None)
+    monkeypatch.setattr(api_main.runtime, "send_telegram_status", lambda *args, **kwargs: {"provider": "telegram", "status": "skipped"})
     monkeypatch.setattr(api_main.runtime, "simulation_loop", _idle_loop)
     monkeypatch.setattr(
         api_main.runtime,
@@ -124,7 +126,6 @@ def test_advance_tick_dispatches_all_detected_theft_and_pole_tamper_alerts(monke
     monkeypatch.setattr(api_main, "calculate_efficiency_metrics", lambda frame: frame)
     monkeypatch.setattr(api_main, "simulate_pole_energy", lambda frame, pole_catalog=None: frame)
     monkeypatch.setattr(api_main, "detect_pole_tampering", lambda current_frame, historical_frame: pole_status.copy())
-    monkeypatch.setattr(api_main, "cluster_consumers", lambda frame: pd.DataFrame())
     monkeypatch.setattr(api_main, "generate_drift_report", lambda reference_frame, current_frame: {"drift_detected": False})
     monkeypatch.setattr(runtime, "_build_forecast_payload", lambda: {"next_hour": 0.0})
 
@@ -146,6 +147,7 @@ def test_advance_tick_dispatches_all_detected_theft_and_pole_tamper_alerts(monke
 
 def test_add_inspector_sends_telegram_welcome_message(monkeypatch) -> None:
     monkeypatch.setattr(api_main.runtime, "bootstrap", lambda: None)
+    monkeypatch.setattr(api_main.runtime, "send_telegram_status", lambda *args, **kwargs: {"provider": "telegram", "status": "skipped"})
     monkeypatch.setattr(api_main.runtime, "simulation_loop", _idle_loop)
     monkeypatch.setattr(api_main, "_require_role", lambda _request, role: {"role": role, "username": "admin"})
     monkeypatch.setattr(
@@ -290,6 +292,36 @@ def test_current_tick_payloads_ignore_recent_history(monkeypatch) -> None:
     assert overview["summary"]["theft"] == 1
     assert overview["summary"]["anomalies"] == 1
     assert overview["summary"]["wastage"] == 1
+
+
+def test_meter_payload_includes_coordinates_for_dashboard_heatmap() -> None:
+    runtime = api_main.SmartGridRuntime()
+    runtime.latest_predictions = pd.DataFrame(
+        [
+            {
+                "meter_id": "M1",
+                "timestamp": "2026-03-12T02:00:00",
+                "area": "Whitefield",
+                "status": "Normal",
+                "latitude": 12.97,
+                "longitude": 77.75,
+                "consumption_kwh": 1.4,
+                "power": 1.2,
+                "voltage": 230.0,
+                "power_factor": 0.96,
+                "anomaly_score": 0.05,
+                "theft_probability": 0.08,
+                "risk_score": 12.0,
+                "risk_level": "Low",
+                "efficiency_score": 94.0,
+            }
+        ]
+    )
+
+    meters = runtime.meter_payload(limit=10)
+
+    assert meters[0]["latitude"] == 12.97
+    assert meters[0]["longitude"] == 77.75
 
 
 def test_theft_and_anomaly_payload_counts_are_not_limited(monkeypatch) -> None:

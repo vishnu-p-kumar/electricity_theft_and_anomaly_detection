@@ -19,6 +19,8 @@ POLE_TAMPER_ALERT_THRESHOLD = 0.7
 
 def _validate_telegram_response(response: requests.Response) -> None:
     response.raise_for_status()
+    if not hasattr(response, "json"):
+        return
     payload = response.json()
     if payload.get("ok", False):
         return
@@ -44,12 +46,54 @@ def _send_telegram_text(chat_id: str, text: str, *, token: str | None = None) ->
     _validate_telegram_response(response)
 
 
+def _telegram_status_recipients() -> list[str]:
+    fallback_chat_id = str(os.getenv("SMARTGRID_TELEGRAM_CHAT_ID") or "").strip()
+    if fallback_chat_id:
+        return [fallback_chat_id]
+
+    users_payload = ensure_users_file()
+    recipients: list[str] = []
+    seen: set[str] = set()
+    for inspector in users_payload.get("inspectors", []):
+        chat_id = str(inspector.get("chat_id") or "").strip()
+        if chat_id and chat_id not in seen:
+            recipients.append(chat_id)
+            seen.add(chat_id)
+    return recipients
+
+
+def send_backend_status_message(title: str, details: list[str] | None = None) -> dict[str, Any]:
+    token = str(os.getenv("SMARTGRID_TELEGRAM_BOT_TOKEN") or "").strip()
+    if not token:
+        return {
+            "provider": "telegram",
+            "status": "skipped",
+            "detail": "SMARTGRID_TELEGRAM_BOT_TOKEN is not configured in the running API process.",
+        }
+
+    recipients = _telegram_status_recipients()
+    if not recipients:
+        return {
+            "provider": "telegram",
+            "status": "skipped",
+            "detail": "No SMARTGRID_TELEGRAM_CHAT_ID or inspector chat_id is configured.",
+        }
+
+    lines = [str(title or "Smart Grid backend status").strip()]
+    lines.extend(str(line).strip() for line in details or [] if str(line).strip())
+    text = "\n".join(lines)
+    for chat_id in recipients:
+        _send_telegram_text(chat_id, text, token=token)
+    return {"provider": "telegram", "status": "sent", "count": 1, "recipients": len(recipients)}
+
+
 def build_alert_messages(dataframe: pd.DataFrame, limit: int | None = None) -> list[dict[str, Any]]:
     if dataframe.empty:
         return []
     theft_frame = dataframe.loc[dataframe.get("status", pd.Series(index=dataframe.index, dtype=object)) == "Electricity Theft"].copy()
+    tamper_probability = dataframe.get("tamper_probability", pd.Series(0.0, index=dataframe.index))
     pole_frame = dataframe.loc[
-        pd.to_numeric(dataframe.get("tamper_probability", 0.0), errors="coerce").fillna(0.0) > POLE_TAMPER_ALERT_THRESHOLD
+        pd.to_numeric(tamper_probability, errors="coerce").fillna(0.0) > POLE_TAMPER_ALERT_THRESHOLD
     ].copy()
     combined = pd.concat([theft_frame, pole_frame], ignore_index=True, sort=False).drop_duplicates().reset_index(drop=True)
     if combined.empty:
@@ -142,10 +186,12 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
     throttled = 0
     now = datetime.now(timezone.utc)
     messages_by_chat: dict[str, list[str]] = {}
+    alert_counts_by_chat: dict[str, int] = {}
     chat_recipient_labels: dict[str, str] = {}
     message_by_inspector: dict[str, str] = {}
+    matched_alert_ids: set[int] = set()
 
-    def _queue_message(chat_id: str, text: str, *, recipient_label: str) -> None:
+    def _queue_message(chat_id: str, text: str, *, recipient_label: str, alert_count: int = 1) -> None:
         clean_chat_id = str(chat_id or "").strip()
         clean_text = str(text or "").strip()
         if not clean_chat_id or not clean_text:
@@ -153,6 +199,7 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
         messages = messages_by_chat.setdefault(clean_chat_id, [])
         if clean_text not in messages:
             messages.append(clean_text)
+            alert_counts_by_chat[clean_chat_id] = alert_counts_by_chat.get(clean_chat_id, 0) + max(int(alert_count), 1)
         chat_recipient_labels.setdefault(clean_chat_id, recipient_label)
 
     for inspector in inspectors:
@@ -161,11 +208,11 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
         chat_id = str(inspector.get("chat_id") or "").strip()
         if not inspector_key or not assigned_area or not chat_id:
             continue
-        scoped_alerts = [
-            alert
-            for alert in alerts
-            if str(alert.get("area") or "").strip().lower() == assigned_area.lower()
-        ]
+        scoped_alerts = []
+        for alert_index, alert in enumerate(alerts):
+            if str(alert.get("area") or "").strip().lower() == assigned_area.lower():
+                scoped_alerts.append(alert)
+                matched_alert_ids.add(alert_index)
         if not scoped_alerts:
             continue
         message = "\n".join(str(alert.get("message") or "") for alert in scoped_alerts if str(alert.get("message") or "").strip())
@@ -176,12 +223,14 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
         if last_sent_at is not None and now - last_sent_at < TELEGRAM_ALERT_COOLDOWN and last_message == message:
             throttled += 1
             continue
-        _queue_message(chat_id, message, recipient_label=inspector_key)
+        _queue_message(chat_id, message, recipient_label=inspector_key, alert_count=len(scoped_alerts))
         message_by_inspector[inspector_key] = message
 
-    if fallback_chat_id:
-        for alert in alerts:
-            _queue_message(fallback_chat_id, str(alert.get("message") or ""), recipient_label=f"fallback:{fallback_chat_id}")
+    if fallback_chat_id and not messages_by_chat:
+        for alert_index, alert in enumerate(alerts):
+            if alert_index in matched_alert_ids:
+                continue
+            _queue_message(fallback_chat_id, str(alert.get("message") or ""), recipient_label=f"fallback:{fallback_chat_id}", alert_count=1)
 
     if not messages_by_chat:
         if throttled > 0:
@@ -190,7 +239,6 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
                 "status": "throttled",
                 "recipients": 0,
                 "throttled": throttled,
-                "detail": "Matching inspector alerts were throttled within the 5 minute cooldown window.",
             }
         return {
             "provider": "telegram",
@@ -201,7 +249,7 @@ def _send_telegram(alerts: list[dict[str, Any]]) -> dict[str, Any]:
     for chat_id, queued_messages in messages_by_chat.items():
         _send_telegram_text(chat_id, "\n".join(queued_messages), token=token)
         recipients += 1
-        delivered += len(queued_messages)
+        delivered += alert_counts_by_chat.get(chat_id, len(queued_messages))
 
     for inspector_key, message in message_by_inspector.items():
         _telegram_last_sent_at[inspector_key] = now

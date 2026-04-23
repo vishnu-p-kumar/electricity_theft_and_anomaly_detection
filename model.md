@@ -1,6 +1,6 @@
 # Models Used In This Project
 
-This project uses different models because electricity theft detection is not a single problem. It includes anomaly detection, theft classification, demand forecasting, clustering, explainability, and drift monitoring.
+This project uses different models because electricity theft detection is not a single problem. It includes anomaly detection, theft classification, demand forecasting, explainability, and drift monitoring.
 
 ## 1. `src/train_models.py`
 
@@ -78,21 +78,7 @@ This project uses different models because electricity theft detection is not a 
 - Why selected: keeps the forecasting module functional even without deep learning support
 - Use of model: provides deterministic forecast output from recent demand history
 
-## 6. `src/consumer_segmentation.py`
-
-### KMeans
-
-- Used for: consumer segmentation
-- Why selected: KMeans is simple and effective for grouping consumers with similar electricity usage patterns
-- Use of model: creates broad clusters such as Residential, Commercial, and Industrial based on consumption behavior
-
-### DBSCAN
-
-- Used for: suspicious behavior grouping
-- Why selected: DBSCAN is useful for finding outliers and dense groups without forcing every point into a cluster
-- Use of model: helps mark unusual consumers as suspicious clusters
-
-## 7. `src/explainable_ai.py`
+## 6. `src/explainable_ai.py`
 
 ### SHAP
 
@@ -106,7 +92,7 @@ This project uses different models because electricity theft detection is not a 
 - Why selected: keeps explanation support available even without the SHAP package
 - Use of model: estimates top contributing features using model feature importance and input values
 
-## 8. `src/data_drift_monitor.py`
+## 7. `src/data_drift_monitor.py`
 
 ### Evidently
 
@@ -120,7 +106,7 @@ This project uses different models because electricity theft detection is not a 
 - Why selected: the system should still monitor drift even if optional libraries are missing
 - Use of model: compares feature means and relative shift between old and new data
 
-## 9. `src/model_optimizer.py`
+## 8. `src/model_optimizer.py`
 
 ### Optuna
 
@@ -128,7 +114,7 @@ This project uses different models because electricity theft detection is not a 
 - Why selected: it can efficiently search better parameters for the main detection models
 - Use of model: tunes Isolation Forest contamination, Random Forest depth, and XGBoost learning rate
 
-## 10. Summary
+## 9. Summary
 
 ### Main detection and forecasting files
 
@@ -137,7 +123,6 @@ This project uses different models because electricity theft detection is not a 
 - `src/theft_detector.py`: Random Forest and XGBoost ensemble
 - `src/demand_forecasting.py`: LSTM
 - `src/transformer_forecasting.py`: Transformer
-- `src/consumer_segmentation.py`: KMeans and DBSCAN
 - `src/explainable_ai.py`: SHAP
 - `src/data_drift_monitor.py`: Evidently or fallback statistical drift
 - `src/model_optimizer.py`: Optuna
@@ -148,7 +133,6 @@ This project uses different models because electricity theft detection is not a 
 - Random Forest is reliable for tabular classification
 - XGBoost improves theft scoring on structured data
 - LSTM and Transformer are suitable for time-series forecasting
-- KMeans and DBSCAN help group consumers and identify unusual clusters
 - SHAP improves trust by explaining predictions
 - Evidently helps monitor production data quality and drift
 - Optuna improves model settings automatically

@@ -418,12 +418,24 @@ a {
 .plot-host,
 .map-shell {
   width: 100%;
+  height: 320px;
   min-height: 320px;
+  overflow: hidden;
+  contain: layout paint size;
+  isolation: isolate;
+  border-radius: 18px;
 }
 
 .plot-host.tall,
 .map-shell.tall {
+  height: min(58vh, 560px);
   min-height: 420px;
+}
+
+.map-shell .leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
 }
 
 .hero-card {

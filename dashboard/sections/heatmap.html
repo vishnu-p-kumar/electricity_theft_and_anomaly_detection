@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Bengaluru Heatmap</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +28,7 @@
       href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../style.css?v=2026-04-23-heatmap-zoom-stability" />
   </head>
   <body data-theme="dark">
     <section class="dashboard-section">
@@ -83,8 +86,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <script src="../components/core.js"></script>
-    <script src="../components/heatmap.js"></script>
+    <script src="../components/core.js?v=2026-04-23-heatmap-zoom-stability"></script>
+    <script src="../components/heatmap.js?v=2026-04-23-heatmap-zoom-stability"></script>
     <script>
       (function () {
         function metric(id, value) {
@@ -154,7 +157,7 @@
         SmartGridDashboard.setupSection({
           name: "heatmap",
           refresh,
-          interval: 3000,
+          interval: 10000,
         });
       })();
     </script>

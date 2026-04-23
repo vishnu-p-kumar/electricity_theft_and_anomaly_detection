@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.consumer_segmentation import cluster_consumers
 from src.energy_efficiency import calculate_efficiency_metrics
 from src.feature_engineering import build_feature_matrix
 from src.risk_scoring import score_meter_risk
@@ -62,15 +61,6 @@ def test_risk_scoring_generates_score_and_level(sample_meter_frame: pd.DataFrame
     assert scored["risk_score"].between(0, 100).all()
     assert set(scored["risk_level"].unique()).issubset({"Low", "Medium", "High", "Critical"})
     assert scored.loc[scored["meter_id"] == "M0104", "risk_score"].mean() > scored.loc[scored["meter_id"] == "M0101", "risk_score"].mean()
-
-
-def test_consumer_clustering_returns_meter_segments(sample_meter_frame: pd.DataFrame) -> None:
-    enriched = _expanded_meter_frame(sample_meter_frame)
-    segments = cluster_consumers(enriched, n_clusters=3)
-    assert segments["meter_id"].nunique() == 4
-    assert "segment" in segments.columns
-    assert segments["segment"].notna().all()
-    assert {"Residential", "Commercial", "Industrial", "Suspicious cluster"} & set(segments["segment"])
 
 
 def test_efficiency_metrics_flag_low_efficiency(sample_meter_frame: pd.DataFrame) -> None:

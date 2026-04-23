@@ -56,7 +56,6 @@ The repository is meter-centric but also includes a pole-monitoring layer. Each 
 - Energy efficiency and wastage analytics
 - Pole energy balance monitoring and pole tamper detection
 - LSTM and Transformer-based demand forecasting with fallback behavior
-- Consumer segmentation using clustering
 - Data drift monitoring between historical and recent windows
 - Explainable predictions for suspicious meters
 - Optional alert dispatch to email, Slack, and Telegram
@@ -454,23 +453,7 @@ Forecast outputs include:
 - forecast `series`
 - comparison between LSTM and Transformer outputs
 
-### 7.7 Consumer Segmentation
-
-File:
-
-- `src/consumer_segmentation.py`
-
-Methods:
-
-- KMeans
-- DBSCAN
-
-Purpose:
-
-- group consumers by usage patterns
-- surface suspicious or unusual clusters for monitoring
-
-### 7.8 Explainability
+### 7.7 Explainability
 
 File:
 
@@ -486,7 +469,7 @@ Purpose:
 - explain suspicious predictions in human-readable form
 - support theft investigation tables and API responses
 
-### 7.9 Data Drift Monitoring
+### 7.8 Data Drift Monitoring
 
 File:
 
@@ -502,7 +485,7 @@ Purpose:
 - compare recent live data to historical reference data
 - identify feature drift, data-quality issues, and theft-rate shifts
 
-### 7.10 Hyperparameter Optimization
+### 7.9 Hyperparameter Optimization
 
 File:
 
@@ -516,7 +499,7 @@ Purpose:
 
 - tune anomaly and theft model parameters before training when explicitly requested from the CLI
 
-### 7.11 Reporting and Export Utilities
+### 7.10 Reporting and Export Utilities
 
 Files:
 
@@ -543,7 +526,7 @@ On startup the runtime:
 2. regenerates data artifacts if key files are missing or outdated
 3. retrains models if required model artifacts are missing
 4. loads historical and live datasets
-5. initializes forecast, clustering, drift, and pole-monitoring state
+5. initializes forecast, drift, and pole-monitoring state
 6. advances one simulation tick immediately so the dashboard has data at first load
 
 ### 8.2 Live Tick Processing
@@ -557,7 +540,7 @@ Every update cycle:
 5. theft alerts are capped for readability
 6. risk and efficiency metrics are computed
 7. pole energy is simulated and checked for tampering
-8. recent windows are updated for drift and clustering
+8. recent windows are updated for drift monitoring
 9. forecast data is rebuilt
 10. SQLite tables are refreshed
 11. the latest snapshot is broadcast to WebSocket clients
@@ -571,7 +554,6 @@ The backend writes runtime data into `database/meter_data.db` using tables such 
 - `live_predictions`
 - `recent_predictions`
 - `risk_scores`
-- `consumer_segments`
 - `efficiency_metrics`
 - `drift_reports`
 - `forecast_snapshots`
@@ -605,7 +587,6 @@ Shared components:
 - `dashboard/components/alerts.js`
 - `dashboard/components/forecast.js`
 - `dashboard/components/heatmap.js`
-- `dashboard/components/segmentation.js`
 
 The dashboard defaults to the API base URL `http://127.0.0.1:8000` and stores UI state such as selected section and theme in local storage.
 
@@ -633,9 +614,6 @@ Each file in `dashboard/sections/` represents one analytics view:
 
 - `pole_monitoring.html`
   Pole energy balance, suspicious poles, and illegal connection signals.
-
-- `consumer_segmentation.html`
-  Cluster summaries and consumer behavior groupings.
 
 - `heatmap.html`
   Interactive theft hotspot map.
@@ -958,7 +936,6 @@ Then open:
 - `GET /weather-impact`
 - `GET /forecast`
 - `GET /risk-scores`
-- `GET /consumer-segments`
 - `GET /efficiency`
 - `GET /api/pole-status`
 - `GET /api/pole-tamper-alerts`
@@ -1044,7 +1021,6 @@ Covered areas include:
 - preprocessing and feature engineering outputs
 - pole hierarchy generation and energy-gap detection
 - risk scoring and efficiency metrics
-- consumer clustering
 - forecasting fallback behavior
 - export generation
 - theft probability calibration
@@ -1115,4 +1091,4 @@ The API bootstrap intentionally regenerates artifacts when required files are mi
 
 ## 19. Presentation Summary
 
-This project simulates a Bengaluru smart-grid intelligence platform. It generates synthetic smart-meter data with weather, theft, anomaly, wastage, and pole-level tamper behavior; trains multiple ML models; replays the data as a live FastAPI stream; stores runtime snapshots in SQLite; and visualizes the full monitoring workflow in a multi-section dashboard. The result is a complete demonstration of electricity theft detection, anomaly monitoring, energy efficiency analysis, demand forecasting, consumer segmentation, weather impact analysis, drift detection, and pole tamper surveillance.
+This project simulates a Bengaluru smart-grid intelligence platform. It generates synthetic smart-meter data with weather, theft, anomaly, wastage, and pole-level tamper behavior; trains multiple ML models; replays the data as a live FastAPI stream; stores runtime snapshots in SQLite; and visualizes the full monitoring workflow in a multi-section dashboard. The result is a complete demonstration of electricity theft detection, anomaly monitoring, energy efficiency analysis, demand forecasting, weather impact analysis, drift detection, and pole tamper surveillance.
