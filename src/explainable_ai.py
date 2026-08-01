@@ -28,6 +28,17 @@ FRIENDLY_FEATURES = {
     "rainfall": "Rainfall effect on electricity usage",
 }
 
+HEURISTIC_REASON_COLUMNS = [
+    "theft_probability",
+    "anomaly_score",
+    "wastage_score",
+    "night_usage_ratio",
+    "voltage_irregularity",
+    "current_power_gap",
+    "power_factor_loss",
+    "consumption_kwh",
+]
+
 
 def _normalise_feature_name(name: str) -> str:
     for key, label in FRIENDLY_FEATURES.items():
@@ -57,6 +68,31 @@ def _feature_contributions(model: Any, feature_row: pd.DataFrame) -> pd.Series:
     return pd.Series(values, index=feature_row.columns)
 
 
+def _fallback_explanation(dataframe: pd.DataFrame, top_k: int) -> dict[str, Any]:
+    enriched, _ = build_feature_matrix(dataframe)
+    if enriched.empty:
+        return {"reason": [], "summary": "No features available for explanation."}
+
+    row = enriched.iloc[0]
+    scores: dict[str, float] = {}
+    for column in HEURISTIC_REASON_COLUMNS:
+        if column in row.index:
+            scores[column] = abs(float(pd.to_numeric(pd.Series([row.get(column)]), errors="coerce").fillna(0.0).iloc[0]))
+
+    if not scores:
+        scores = {"consumption_kwh": 0.0}
+    reasons = [
+        _normalise_feature_name(name)
+        for name, _ in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
+    ]
+    return {
+        "meter_id": row.get("meter_id"),
+        "area": row.get("area"),
+        "reason": reasons,
+        "summary": ", ".join(reasons),
+    }
+
+
 def explain_prediction(
     dataframe: pd.DataFrame,
     top_k: int = 3,
@@ -67,7 +103,12 @@ def explain_prediction(
     model_path = Path(model_path) if model_path else paths.xgboost_model
     metadata_path = Path(metadata_path) if metadata_path else paths.model_metadata
     metadata = load_json(metadata_path, default={}) or {}
-    model = load_joblib(model_path)
+    if not model_path.exists():
+        return _fallback_explanation(dataframe, top_k=top_k)
+    try:
+        model = load_joblib(model_path)
+    except Exception:
+        return _fallback_explanation(dataframe, top_k=top_k)
 
     enriched, features = build_feature_matrix(dataframe, model_columns=metadata.get("feature_columns"))
     if features.empty:
