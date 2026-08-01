@@ -31,6 +31,8 @@ This repository is useful for:
 - [17. Project Workflow Summary](#17-project-workflow-summary)
 - [18. Troubleshooting](#18-troubleshooting)
 - [19. Presentation Summary](#19-presentation-summary)
+- [20. Detailed Model Selection Rationale](#20-detailed-model-selection-rationale)
+- [21. In-Depth Interview Questions](#21-in-depth-interview-questions)
 
 ## 1. Project Summary
 
@@ -1092,3 +1094,474 @@ The API bootstrap intentionally regenerates artifacts when required files are mi
 ## 19. Presentation Summary
 
 This project simulates a Bengaluru smart-grid intelligence platform. It generates synthetic smart-meter data with weather, theft, anomaly, wastage, and pole-level tamper behavior; trains multiple ML models; replays the data as a live FastAPI stream; stores runtime snapshots in SQLite; and visualizes the full monitoring workflow in a multi-section dashboard. The result is a complete demonstration of electricity theft detection, anomaly monitoring, energy efficiency analysis, demand forecasting, weather impact analysis, drift detection, and pole tamper surveillance.
+
+## 20. Detailed Model Selection Rationale
+
+This project does not use only one model because the problem is not only one machine learning task. Electricity theft detection involves abnormal-pattern discovery, supervised theft classification, demand forecasting, risk ranking, pole-level energy-balance analysis, explainability, and drift monitoring. Each part has a different data shape and operational goal.
+
+### 20.1 Models Actually Used
+
+| Project Need | Model or Method Used | Main File | Why It Is Used |
+| --- | --- | --- | --- |
+| Meter anomaly detection | Isolation Forest | `src/train_models.py`, `src/detect_anomaly.py` | Detects rare or unusual meter behavior without needing every possible theft pattern to be labelled. |
+| Theft classification | Random Forest Classifier | `src/train_models.py`, `src/theft_detector.py` | Strong, stable model for structured tabular data; handles nonlinear rules and mixed feature interactions well. |
+| Theft classification | XGBoost Classifier | `src/train_models.py`, `src/theft_detector.py` | Boosted trees usually perform well on fraud-like structured data and can capture sharp decision boundaries. |
+| Theft classification fallback | HistGradientBoostingClassifier | `src/train_models.py` | Keeps the pipeline working even if the `xgboost` package is unavailable. |
+| Demand forecasting | LSTM | `src/demand_forecasting.py` | Learns sequential consumption behavior such as hourly and daily demand cycles. |
+| Demand forecasting | Transformer Regressor | `src/transformer_forecasting.py` | Provides an advanced time-series model that can learn longer-range temporal relationships. |
+| Forecast fallback | Seasonal baseline forecaster | `src/demand_forecasting.py`, `src/transformer_forecasting.py` | Keeps forecast APIs and dashboards functional even when deep learning libraries or trained artifacts are missing. |
+| Pole tamper detection | Isolation Forest plus energy-balance heuristics | `src/pole_tamper_detector.py` | Detects abnormal pole-level energy mismatch, hidden load, and possible illegal connections. |
+| Risk ranking | Weighted risk scoring | `src/risk_scoring.py` | Converts model outputs and electrical signals into an operational priority score. |
+| Explainability | SHAP or fallback feature importance | `src/explainable_ai.py` | Explains why a meter is suspicious, which is important for inspector decisions. |
+| Drift monitoring | Evidently or fallback statistical drift checks | `src/data_drift_monitor.py` | Checks whether live data has shifted away from historical training data. |
+| Hyperparameter tuning | Optuna | `src/model_optimizer.py` | Optionally searches better parameters for Isolation Forest, Random Forest, and XGBoost. |
+
+### 20.2 Why Isolation Forest Was Chosen
+
+Isolation Forest is used for anomaly detection because theft and electrical faults are rare compared with normal readings. The model works by isolating unusual points faster than common points. In this project, it is trained mainly on normal records and produces an `anomaly_score`. A high score means the reading behaves differently from the learned normal pattern.
+
+It is useful here because not every real theft case will look exactly like the synthetic labels. For example, a meter bypass, voltage drop, power-factor issue, and unusual night usage may appear in different combinations. Isolation Forest gives the system a way to flag suspicious readings even before the supervised classifier is fully confident.
+
+Why not only Isolation Forest:
+
+- It is unsupervised, so it does not directly learn the difference between theft, wastage, and harmless unusual demand.
+- It can flag genuine high consumption as anomalous.
+- It gives anomaly evidence, but it is not enough for final theft classification.
+
+### 20.3 Why Random Forest Was Chosen
+
+Random Forest is used as a supervised theft classifier because the dataset contains labelled `is_theft` examples generated from known theft scenarios. It works well with tabular features such as voltage, current, consumption, power factor, weather, usage profile, area, rolling averages, night usage ratio, and wastage score.
+
+It was chosen because:
+
+- it is robust on tabular data
+- it handles nonlinear relationships
+- it is less sensitive to feature scaling
+- it gives reliable baseline performance
+- it can handle noisy synthetic data better than a single decision tree
+- it supports class balancing with `class_weight="balanced_subsample"`
+
+Why not only Random Forest:
+
+- Boosted models often provide better probability separation on fraud-style tabular data.
+- Random Forest may average many trees and become less sharp near difficult boundaries.
+- It may be less efficient than boosting when the goal is high recall on rare suspicious events.
+
+### 20.4 Why XGBoost Was Chosen
+
+XGBoost is used as the stronger boosted theft classifier. It trains trees sequentially, where each new tree focuses on errors from previous trees. This is useful in theft detection because the suspicious class may be rare, and important patterns may depend on feature interactions.
+
+It was chosen because:
+
+- it performs very well on structured/tabular ML problems
+- it can capture complex theft signatures
+- it usually gives strong ranking probabilities
+- it handles mixed signal strength better than simple linear models
+- it is common in fraud detection, credit risk, and anomaly-heavy classification
+
+Why a fallback model is included:
+
+The project should still run on machines where XGBoost is not installed. In that case, `HistGradientBoostingClassifier` is used as a scikit-learn fallback. The saved artifact path remains `models/xgboost_model.pkl`, but the metadata records whether the actual model is `xgboost` or `hist_gradient_boosting_fallback`.
+
+### 20.5 Why Random Forest and XGBoost Are Combined
+
+The final theft probability is not taken from only one classifier. In `src/theft_detector.py`, the project blends the probabilities:
+
+```text
+blended_probability = 0.45 * random_forest_probability + 0.55 * xgboost_probability
+```
+
+Then the project calibrates the final score using:
+
+- blended supervised model probability
+- seeded theft probability from the generator
+- anomaly score
+- wastage score
+
+The calibration formula gives most weight to the supervised models, while still allowing anomaly and wastage signals to raise suspicion. Strong evidence can push final `theft_probability` above `0.91`, which maps to `Electricity Theft`.
+
+This design was chosen because a practical theft system should not depend on one signal. A meter may be suspicious because of model confidence, abnormal usage, wastage, voltage irregularity, or seeded theft behavior in the live demo.
+
+### 20.6 Why LSTM Was Chosen for Forecasting
+
+Electricity demand is time-series data. Hourly consumption depends on previous hours, time of day, day of week, weather, and usage profile. LSTM is designed to learn sequential patterns and can remember context over a lookback window.
+
+In this project:
+
+- readings are grouped by timestamp
+- total consumption is converted into a demand series
+- the model uses a 24-hour lookback window
+- it predicts future values recursively
+- outputs are summarized as next hour, next day, and next week
+
+Why not only a statistical model:
+
+Simple methods like moving average or ARIMA are easier to explain, but they may struggle when demand behavior is nonlinear and influenced by weather, area mix, and usage profile changes.
+
+### 20.7 Why Transformer Forecasting Was Added
+
+The Transformer forecaster gives a second advanced forecasting approach. Unlike LSTM, a Transformer encoder can learn relationships across positions in the input sequence using attention. In this project it is intentionally compact, CPU-friendly, and used for comparison rather than as a huge deep learning model.
+
+It was chosen because:
+
+- it represents a modern time-series modeling approach
+- it can learn longer temporal relationships
+- it gives a useful comparison against LSTM
+- it makes the forecasting module more complete for academic explanation
+
+Why not only Transformer:
+
+- it may need more data to outperform simpler methods
+- it depends on PyTorch availability
+- it is less straightforward to explain than LSTM or tree models
+- for a small demo dataset, a baseline may sometimes be more stable
+
+### 20.8 Why Baseline Fallbacks Are Important
+
+The project includes fallback behavior intentionally. If TensorFlow, PyTorch, XGBoost, SHAP, Evidently, or Optuna is unavailable, the system should still run.
+
+Fallbacks are important because:
+
+- project demos should not fail due to optional library installation issues
+- API endpoints should keep returning valid payloads
+- dashboards should remain usable
+- tests can validate behavior without requiring every heavy dependency
+- users can run the core project on normal laptops
+
+### 20.9 Other Models That Could Be Used
+
+The following models are possible alternatives or future improvements.
+
+| Model | Where It Could Be Used | Why It Could Help | Why It Was Not the Main Choice |
+| --- | --- | --- | --- |
+| Logistic Regression | Theft classification | Simple, interpretable baseline | Too linear for complex theft patterns. |
+| Decision Tree | Theft classification | Easy to visualize and explain | Overfits easily and is weaker than Random Forest. |
+| Support Vector Machine | Theft classification/anomaly | Can work well on smaller datasets | Scaling and probability calibration are harder for large tabular streams. |
+| KNN | Anomaly or theft classification | Simple distance-based reasoning | Slow at prediction time and sensitive to scaling. |
+| Naive Bayes | Baseline classification | Fast and simple | Feature independence assumption is unrealistic for electrical data. |
+| CatBoost | Theft classification | Excellent for categorical tabular features | Adds another external dependency; XGBoost is already common and available. |
+| LightGBM | Theft classification | Very fast gradient boosting | Another dependency; XGBoost/scikit fallback is enough for this project. |
+| Autoencoder | Anomaly detection | Learns compressed normal behavior | Needs neural-network training and tuning; less interpretable than Isolation Forest. |
+| One-Class SVM | Anomaly detection | Classic one-class anomaly method | Can be slow and sensitive to kernel/scaling choices. |
+| Local Outlier Factor | Anomaly detection | Good for local density anomalies | Less convenient for stable deployed prediction on new streaming points. |
+| ARIMA/SARIMA | Demand forecasting | Strong classical time-series baseline | Less flexible for nonlinear effects and multiple external signals. |
+| Prophet | Demand forecasting | Good trend/seasonality decomposition | Extra dependency and less aligned with custom deep learning comparison. |
+| GRU | Demand forecasting | Lighter alternative to LSTM | Similar purpose; LSTM is more commonly explained in coursework. |
+| Temporal CNN | Demand forecasting | Fast sequence modeling | Less familiar for many interview explanations. |
+| Graph Neural Network | Grid/pole topology modeling | Could model transformer-pole-meter relationships directly | More complex and not necessary for this demo scale. |
+
+### 20.10 Did This Project Choose Only One Model?
+
+No. The project uses a multi-model approach:
+
+- Isolation Forest finds unusual meter behavior.
+- Random Forest learns labelled theft patterns.
+- XGBoost or HistGradientBoosting improves supervised theft scoring.
+- LSTM forecasts future demand.
+- Transformer forecasting provides an advanced comparison model.
+- Pole tamper detection combines energy-balance rules with Isolation Forest.
+- Risk scoring blends model outputs into operational severity.
+
+The main theft decision is therefore not based on a single model. It is an ensemble-style decision supported by anomaly detection, supervised classification, seeded theft context, wastage score, and risk scoring.
+
+### 20.11 Final Model Decision Summary
+
+The selected models are appropriate because the project uses structured smart-meter data, rare-event theft labels, time-series demand behavior, and operational dashboard requirements.
+
+- For anomaly detection, Isolation Forest is simple, fast, and suitable for rare abnormal readings.
+- For theft classification, Random Forest gives robustness and XGBoost gives stronger boosted performance.
+- For forecasting, LSTM and Transformer models match the sequential nature of electricity demand.
+- For deployment reliability, fallback models keep the system usable even when optional ML libraries are missing.
+- For real-world usefulness, explainability, drift monitoring, and risk scoring turn raw predictions into inspection-ready information.
+
+## 21. In-Depth Interview Questions
+
+These questions are based directly on this project. They cover data generation, preprocessing, model selection, training, backend runtime behavior, API design, dashboard design, testing, and deployment.
+
+### 21.1 Project Overview Questions
+
+1. What real-world problem does this project solve, and why is electricity theft detection important for smart grids?
+2. Why did you build this system as an end-to-end project instead of only a machine learning notebook?
+3. What are the main modules of the project, and how does data flow from generation to dashboard?
+4. What is the difference between electricity theft, anomaly, and power wastage in this project?
+5. How does the project simulate real smart-meter behavior for Bengaluru?
+6. Why did you include both meter-level and pole-level monitoring?
+7. What are the main outputs of the system for an electricity board or field inspector?
+8. How would you explain this project to a non-technical electricity department officer?
+9. What makes this project different from a basic binary classification project?
+10. What are the limitations of using synthetic data for electricity theft detection?
+
+### 21.2 Dataset and Data Generation Questions
+
+1. Why did you generate synthetic data instead of using a public real-world dataset?
+2. What assumptions did you make while generating meter consumption data?
+3. Which Bengaluru areas are included, and why is location useful in theft detection?
+4. How are usage profiles such as residential, commercial, industrial, night usage, and AC-heavy simulated?
+5. How does temperature affect expected electricity consumption in the generated data?
+6. How are rainfall, humidity, and wind speed used in the data?
+7. What is the difference between `expected_consumption_kwh`, `consumption_kwh`, and `power`?
+8. How are theft scenarios injected into the dataset?
+9. Explain the five theft types used in this project.
+10. What is `seeded_theft_probability`, and why is it useful in live simulation?
+11. How does the project keep live theft meters stable for dashboard demonstrations?
+12. What is the purpose of `meter_catalog.csv`?
+13. What is the purpose of `pole_catalog.csv`?
+14. How does the transformer-pole-meter hierarchy help identify illegal connections?
+15. How would the system change if real smart-meter data were available?
+
+### 21.3 Preprocessing and Feature Engineering Questions
+
+1. Why is feature engineering important for smart-meter theft detection?
+2. What are the base numerical features used for model training?
+3. Which categorical features are one-hot encoded?
+4. Why is `hour_of_day` important?
+5. Why is `day_of_week` important?
+6. How is `rolling_average_consumption` calculated, and why does it help?
+7. What does `consumption_variance` indicate?
+8. What is `peak_usage_ratio`, and how can it reveal abnormal usage?
+9. What is `night_usage_ratio`, and why is night usage important in theft cases?
+10. Why is `weather_consumption_ratio` useful?
+11. How can `power_factor_loss` indicate inefficient or suspicious behavior?
+12. How does `voltage_irregularity` help detect tampering?
+13. What is `current_power_gap`, and what electrical inconsistency can it capture?
+14. How does the code handle missing columns in incoming prediction requests?
+15. Why must prediction-time feature columns match training-time feature columns?
+
+### 21.4 Anomaly Detection Questions
+
+1. Why did you choose Isolation Forest for anomaly detection?
+2. How does Isolation Forest detect abnormal data points?
+3. Why is anomaly detection useful even when labelled theft data exists?
+4. What is the meaning of `anomaly_score` in this project?
+5. How is `is_anomaly` decided?
+6. Why is the anomaly threshold stored in model metadata?
+7. Why is the Isolation Forest trained mainly using normal records?
+8. What can cause a false positive anomaly in electricity data?
+9. What can cause a false negative anomaly in electricity data?
+10. How would you tune the contamination parameter?
+11. Why might Isolation Forest be better than KNN for this project?
+12. Why might an autoencoder be a possible future alternative?
+13. How would you evaluate anomaly detection without perfect labels?
+14. How does anomaly detection influence the final theft probability?
+15. How would you explain Isolation Forest to a panel in simple language?
+
+### 21.5 Theft Classification Questions
+
+1. Why is theft detection treated as a supervised classification problem?
+2. Why are Random Forest and XGBoost both used?
+3. How does Random Forest work internally?
+4. How does XGBoost work internally?
+5. Why can boosted trees perform well on fraud-like tabular data?
+6. What is the final theft probability formula in the project?
+7. Why does the project give 55 percent weight to XGBoost and 45 percent to Random Forest in the initial blend?
+8. Why are anomaly score, wastage score, and seeded theft probability added after model prediction?
+9. Why is `Electricity Theft` assigned when theft probability is at least `0.9`?
+10. How does the classifier distinguish between theft and power wastage?
+11. What does `class_weight="balanced_subsample"` do in Random Forest?
+12. How are precision, recall, F1 score, accuracy, and ROC-AUC used?
+13. In this project, which metric matters more: precision or recall? Why?
+14. What is the risk of high false positives in theft detection?
+15. What is the risk of high false negatives in theft detection?
+16. Why is `HistGradientBoostingClassifier` used as a fallback?
+17. How would you improve theft classification with real customer billing data?
+18. How would you handle class imbalance in real theft datasets?
+19. Why should model probability be calibrated before operational use?
+20. How would you explain a theft prediction to an inspector?
+
+### 21.6 Forecasting Questions
+
+1. Why is demand forecasting included in a theft detection project?
+2. What is the difference between theft detection and demand forecasting?
+3. Why is electricity demand a time-series problem?
+4. How does the project build the demand series before training?
+5. Why is a 24-hour lookback window used?
+6. How does an LSTM remember sequence information?
+7. What are the main layers in the LSTM model?
+8. Why is MinMaxScaler used before LSTM training?
+9. How does the project forecast next hour, next day, and next week demand?
+10. What is recursive forecasting?
+11. What problems can happen in recursive forecasting?
+12. Why was a Transformer model added?
+13. What is attention in a Transformer?
+14. How is the project Transformer different from a large language model?
+15. Why does the project include a baseline seasonal fallback?
+16. When might a simple baseline outperform LSTM or Transformer?
+17. How would weather forecast data improve demand forecasting?
+18. How would you evaluate forecasting accuracy?
+19. What are MAE, RMSE, and MAPE?
+20. How would poor demand forecasts affect grid operations?
+
+### 21.7 Risk Scoring Questions
+
+1. Why is a risk score needed if the model already predicts theft probability?
+2. Which signals are combined in `score_meter_risk`?
+3. Why are anomaly and theft components heavily weighted?
+4. Why are voltage irregularity and night usage included in risk scoring?
+5. How are risk levels such as Low, Medium, High, and Critical assigned?
+6. How would you decide the best threshold for Critical risk?
+7. What is the difference between model probability and business risk?
+8. How can risk scoring help prioritize field inspections?
+9. What are the dangers of using a fixed risk threshold?
+10. How would you calibrate risk scoring with feedback from inspectors?
+
+### 21.8 Pole Monitoring Questions
+
+1. Why is pole-level monitoring important in electricity theft detection?
+2. What is the formula behind pole energy mismatch?
+3. What is `energy_gap`?
+4. What is `energy_gap_ratio`?
+5. What are technical losses?
+6. How can a pole show theft even when individual meters look normal?
+7. How does the project detect possible illegal connections?
+8. Why does pole tamper detection combine heuristics and Isolation Forest?
+9. What is `tamper_probability`?
+10. What conditions can set `tamper_flag` to 1?
+11. How would real transformer and pole sensor data improve this module?
+12. What are possible false positives in pole tamper detection?
+13. How would you validate pole-level theft detection in the real world?
+14. Why is `connected_meters` stored in the pole catalog?
+15. How can pole alerts support field inspectors?
+
+### 21.9 API and Runtime Questions
+
+1. Why was FastAPI chosen for the backend?
+2. What happens during backend startup?
+3. Why does the API regenerate missing artifacts?
+4. What is the purpose of the live simulation loop?
+5. Why does the runtime advance one tick at startup?
+6. What does `/health` return?
+7. What does `/overview` return?
+8. What does `/predict` do?
+9. Why does `/predict` accept both one reading and a list of readings?
+10. How does the WebSocket endpoint `/ws/live` work?
+11. Why is CORS enabled?
+12. What runtime data is stored in SQLite?
+13. Why use SQLite instead of PostgreSQL for this project?
+14. How would you scale this API for production?
+15. How would you secure the API in a real deployment?
+16. Why are generated artifacts exposed through artifact endpoints?
+17. How does the API support inspector workflows?
+18. What role does authentication play in the dashboard?
+19. How would you handle API failure in the frontend?
+20. How would you monitor this API in production?
+
+### 21.10 Dashboard Questions
+
+1. What is the purpose of the dashboard?
+2. Which dashboard sections are available?
+3. How does the dashboard get data from the backend?
+4. Why does the dashboard show overview, live monitoring, theft, anomaly, forecast, efficiency, heatmap, and pole monitoring separately?
+5. How would an electricity board operator use this dashboard?
+6. How would an inspector use this dashboard?
+7. Why is a heatmap useful for theft detection?
+8. What KPIs should be shown on the overview page?
+9. How would you prevent information overload in the dashboard?
+10. How would you improve the dashboard for mobile inspectors?
+
+### 21.11 Explainability and Drift Questions
+
+1. Why is explainability important in electricity theft detection?
+2. What is SHAP?
+3. How does the fallback explanation method work when SHAP is unavailable?
+4. Why should an inspector not trust only a black-box probability?
+5. What is data drift?
+6. What is concept drift?
+7. Why can smart-meter data drift over time?
+8. How does weather change create drift?
+9. How can consumer behavior changes create drift?
+10. What does Evidently provide?
+11. Why is a fallback statistical drift check included?
+12. How would drift affect model accuracy?
+13. What should happen when drift is detected?
+14. How often should the model be retrained?
+15. How would inspector feedback improve future training?
+
+### 21.12 Testing and Validation Questions
+
+1. What parts of the project are tested with pytest?
+2. Why is testing important in an ML application?
+3. What should be tested in the data generation pipeline?
+4. What should be tested in feature engineering?
+5. What should be tested in theft probability calibration?
+6. What should be tested in API responses?
+7. What should be tested in the inspector workflow?
+8. How do tests help prevent dashboard-breaking API changes?
+9. Why should fallback behavior be tested?
+10. What additional tests would you add before production deployment?
+11. How would you test model performance on real data?
+12. How would you test false positive and false negative behavior?
+13. How would you validate heatmap accuracy?
+14. How would you test WebSocket live updates?
+15. How would you test alert delivery safely?
+
+### 21.13 Deployment and Production Questions
+
+1. How can this project be run locally?
+2. How can it be run using Docker Compose?
+3. What services are defined in `docker-compose.yml`?
+4. What files are generated after running the project?
+5. Which files should not be committed in a real production repository?
+6. How would you deploy this project on a cloud server?
+7. How would you replace synthetic data with real streaming data?
+8. How would you store large smart-meter datasets?
+9. Why might SQLite not be enough for production?
+10. How would you use Kafka or another queue in this system?
+11. How would you schedule periodic model retraining?
+12. How would you handle model versioning?
+13. How would you monitor model performance after deployment?
+14. How would you protect customer privacy?
+15. What security risks exist in a smart-grid theft detection system?
+
+### 21.14 Advanced Machine Learning Questions
+
+1. How would you handle severe class imbalance in real theft data?
+2. How would you choose between Random Forest, XGBoost, LightGBM, and CatBoost?
+3. How would you calibrate predicted probabilities?
+4. What is threshold tuning, and why is it important here?
+5. Why can accuracy be misleading in theft detection?
+6. Why might recall be more important than precision in early theft screening?
+7. Why might precision be more important before sending legal notices?
+8. What is the difference between anomaly detection and fraud classification?
+9. How would you use semi-supervised learning in this project?
+10. How would you use active learning with inspector feedback?
+11. How would you use graph neural networks for transformer-pole-meter topology?
+12. How would you detect coordinated theft in an area?
+13. How would you detect meter tampering from voltage and current waveforms?
+14. How would you use smart-meter event logs in the model?
+15. How would you reduce model bias across different areas or consumer types?
+
+### 21.15 Scenario-Based Interview Questions
+
+1. Suppose the model marks many industrial meters as theft during working hours. What would you check?
+2. Suppose theft probability is low but pole energy gap is high. What does that mean?
+3. Suppose the dashboard shows no live data. How would you debug it?
+4. Suppose XGBoost is not installed on the evaluator's machine. What happens?
+5. Suppose TensorFlow is missing. Will forecasting still work?
+6. Suppose the generated dataset has very low theft rate. How does that affect training?
+7. Suppose the model has high accuracy but low recall. Is it acceptable?
+8. Suppose an inspector says many flagged cases are false positives. What changes would you make?
+9. Suppose a new area is added to Bengaluru. What code or data must change?
+10. Suppose real weather API calls fail. How does the project continue?
+11. Suppose live data has missing `expected_consumption_kwh`. How does prediction handle it?
+12. Suppose a meter has high night usage but belongs to a night-shift factory. How should the model avoid false positives?
+13. Suppose voltage is abnormal for an entire area. Is it theft or grid fault?
+14. Suppose pole tamper alerts are frequent after rain. What would you investigate?
+15. Suppose demand forecasting suddenly becomes inaccurate. What drift or data issues would you check?
+
+### 21.16 Questions You Should Be Ready To Answer Personally
+
+1. What was your exact contribution to this project?
+2. Which module was the most difficult to build and why?
+3. Why did you choose this project topic?
+4. What did you learn about smart grids?
+5. What did you learn about anomaly detection?
+6. What did you learn about full-stack ML systems?
+7. Which model performed best and how do you know?
+8. What would you improve if you had more time?
+9. What are the ethical concerns of electricity theft prediction?
+10. How would you make this project production-ready?
+11. How would you explain a false accusation risk to the interview panel?
+12. How would you collect real labels for theft?
+13. How would field-inspection feedback be added to the system?
+14. How would you convince an electricity board to trust this system?
+15. What is the strongest technical feature of your project?
