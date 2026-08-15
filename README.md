@@ -1,4 +1,4 @@
-# Smart Grid Electricity Theft, Anomaly, and Wastage Detection System
+# GridSentinel-AI-Powered-Electricity-Theft-Grid-Intelligence-System
 
 An end-to-end smart-grid analytics project built on synthetic Bengaluru smart-meter data. The system generates realistic meter readings, trains multiple machine learning models, replays a live monitoring stream through FastAPI, stores runtime state in SQLite, and serves a browser dashboard for operators.
 
